@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
 
 import {
   colors,
@@ -102,28 +103,6 @@ export default function LoginScreen() {
         password
       );
 
-      console.log(
-        'LOGIN RESULT:',
-        JSON.stringify(
-          {
-            data,
-            error: error
-              ? {
-                  message:
-                    error.message,
-                  status:
-                    error.status,
-                  code:
-                    error.code,
-                  name:
-                    error.name,
-                }
-              : null,
-          },
-          null,
-          2
-        )
-      );
 
       /*
        * LOGIN ERROR
@@ -255,8 +234,11 @@ export default function LoginScreen() {
           await supabase.auth.resetPasswordForEmail(
             cleanEmail,
             {
+              // Works for web, Expo Go and installed builds.
               redirectTo:
-                'http://localhost:8081/reset-password',
+                Linking.createURL(
+                  '/reset-password'
+                ),
             }
           );
 

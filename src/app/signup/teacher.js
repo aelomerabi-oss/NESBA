@@ -20,6 +20,7 @@ import {
 } from '../../constants/theme';
 
 import { supabase } from '../../lib/supabase';
+import { signInWithProvider } from '../../lib/social-auth';
 
 export default function TeacherSignup() {
   const [fullName, setFullName] = useState('');
@@ -164,13 +165,29 @@ export default function TeacherSignup() {
         );
       }
 
+      /*
+       * When email confirmation is enabled, signUp returns no session:
+       * the user must confirm their email before logging in.
+       */
+      if (!data.session) {
+        setSuccessMessage(
+          'Account created. Check your email and tap the confirmation link, then log in.'
+        );
+
+        setTimeout(() => {
+          router.replace('/login');
+        }, 2500);
+
+        return;
+      }
+
       setSuccessMessage(
-        'Your teacher account has been created successfully.'
+        'Your account is ready. A NESBA admin will review your teacher request; until it is approved your account works as a student account.'
       );
 
       setTimeout(() => {
         router.replace('/creator');
-      }, 1000);
+      }, 2500);
 
     } catch (error) {
       console.error(
@@ -220,30 +237,35 @@ export default function TeacherSignup() {
     try {
       setSocialLoading(provider);
 
-      const redirectTo =
-        typeof window !== 'undefined'
-          ? `${window.location.origin}/signup/teacher`
-          : 'nesba://signup/teacher';
+      await signInWithProvider(provider);
 
+      /*
+       * Accounts created through Google / Apple carry no sign-up form
+       * data, so file the teacher request now that the user is signed in.
+       */
       const {
-        data,
-        error,
-      } = await supabase.auth.signInWithOAuth({
-        provider,
+        error: requestError,
+      } = await supabase.rpc(
+        'request_creator_role',
+        {
+          p_role: 'teacher',
+        }
+      );
 
-        options: {
-          redirectTo,
-        },
-      });
-
-      if (error) {
-        throw error;
+      if (
+        requestError &&
+        !requestError.message?.includes('already have')
+      ) {
+        throw requestError;
       }
 
-      console.log(
-        `${provider} teacher authentication started`,
-        data
+      setSuccessMessage(
+        'Signed in. A NESBA admin will review your teacher request.'
       );
+
+      setTimeout(() => {
+        router.replace('/creator');
+      }, 2000);
 
     } catch (error) {
       console.error(
