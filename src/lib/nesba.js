@@ -1475,7 +1475,7 @@ export async function uploadPostImage({
     'jpg';
 
   const path =
-    `posts/${id}/${Date.now()}-${Math.random()
+    `${id}/posts/${Date.now()}-${Math.random()
       .toString(36)
       .substring(2)}.${extension}`;
 
@@ -1598,7 +1598,7 @@ export async function uploadPostVideo({
     'mp4';
 
   const path =
-    `posts/${id}/${Date.now()}-${Math.random()
+    `${id}/posts/${Date.now()}-${Math.random()
       .toString(36)
       .substring(2)}.${extension}`;
 
@@ -2222,7 +2222,7 @@ export async function uploadCommentMedia({
 
   const blob = await response.blob();
   const extension = String(fileName).split('.').pop() || 'jpg';
-  const path = `comments/${id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+  const path = `${id}/comments/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
 
   const { error } = await supabase.storage.from('posts').upload(path, blob, {
     contentType: contentType || 'image/jpeg',
@@ -2467,7 +2467,7 @@ export async function uploadStoryMedia({
     'jpg';
 
   const path =
-    `stories/${id}/${Date.now()}-${Math.random()
+    `${id}/stories/${Date.now()}-${Math.random()
       .toString(36)
       .substring(2)}.${extension}`;
 
@@ -4175,13 +4175,13 @@ export async function uploadProfileImage({
     'jpg';
 
   const path =
-    `profiles/${id}/avatar-${Date.now()}.${extension}`;
+    `${id}/avatar-${Date.now()}.${extension}`;
 
   const {
     error,
   } = await supabase
     .storage
-    .from('profiles')
+    .from('avatars')
     .upload(
       path,
       blob,
@@ -4213,7 +4213,7 @@ export async function uploadProfileImage({
   } =
     supabase
       .storage
-      .from('profiles')
+      .from('avatars')
       .getPublicUrl(
         path
       );
