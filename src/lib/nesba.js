@@ -3097,6 +3097,52 @@ export async function updateCourseProgress({
 
 
 /*
+ * Marks a lesson complete for the signed-in learner.
+ *
+ * The database recomputes course progress and, at 100%,
+ * issues the certificate and any badges earned.
+ *
+ * Returns { progress_percent, course_completed, certificate_id }.
+ */
+export async function completeLesson(
+  moduleId
+) {
+  const id =
+    normalizeId(moduleId);
+
+  if (!id) {
+    throw new Error(
+      'Missing lesson ID.'
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase.rpc(
+    'mark_lesson_complete',
+    {
+      p_module_id: id,
+    }
+  );
+
+  if (error) {
+    console.error(
+      'completeLesson error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not save lesson progress.'
+    );
+  }
+
+  return data;
+}
+
+
+/*
 |--------------------------------------------------------------------------
 | BADGES
 |--------------------------------------------------------------------------

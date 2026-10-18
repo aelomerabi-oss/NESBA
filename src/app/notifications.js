@@ -194,6 +194,36 @@ export default function NotificationsScreen() {
 
         return;
       }
+
+      /*
+       * ========================================
+       * COURSE COMPLETION REWARDS
+       * ========================================
+       *
+       * Issued by the database when a course
+       * reaches 100%.
+       */
+
+      if (
+        item.type === 'certificate_issued' &&
+        item.data?.certificate_id
+      ) {
+        router.push(
+          `/certificate/${item.data.certificate_id}`
+        );
+
+        return;
+      }
+
+      if (
+        item.type === 'badge_earned'
+      ) {
+        router.push(
+          '/learn'
+        );
+
+        return;
+      }
     };
 
   /*
@@ -385,6 +415,12 @@ export default function NotificationsScreen() {
                     : item.type ===
                       'follow'
                     ? '👤'
+                    : item.type ===
+                      'certificate_issued'
+                    ? '🎓'
+                    : item.type ===
+                      'badge_earned'
+                    ? '🏅'
                     : '🔔'}
                 </Text>
               </View>
