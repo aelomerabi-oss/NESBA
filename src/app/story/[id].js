@@ -328,18 +328,27 @@ export default function StoryScreen() {
 
         if (!storyId) {
           throw new Error(
-            'Story user ID is missing.'
+            'Story ID is missing.'
           );
         }
 
         const groups =
           await getStoryGroups();
 
+        /*
+         * The route id is a story id (Home screen, StoriesBar) or the
+         * author's user id; find the author's group either way.
+         */
         const group =
           safeArray(groups).find(
             item =>
               String(item?.userId) ===
-              String(storyId)
+                String(storyId) ||
+              safeArray(item?.stories).some(
+                story =>
+                  String(story?.id) ===
+                  String(storyId)
+              )
           );
 
         if (!group) {
@@ -361,7 +370,7 @@ export default function StoryScreen() {
           userStories.findIndex(
             story =>
               String(story?.id) ===
-              String(params.storyId || '')
+              String(params.storyId || storyId)
           );
 
         if (mountedRef.current) {
