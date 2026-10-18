@@ -6638,3 +6638,163 @@ export async function createMediaItem({
 
   return data;
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| LIVE ROOM CHAT AND MODERATION
+|--------------------------------------------------------------------------
+*/
+
+export async function getLiveRoomMessages(
+  roomId,
+  {
+    limit = 200,
+  } = {}
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('live_room_messages')
+    .select(
+      'id,room_id,user_id,content,created_at,profiles(full_name,avatar_url)'
+    )
+    .eq(
+      'room_id',
+      normalizeId(roomId)
+    )
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    )
+    .limit(limit);
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not load the chat.'
+    );
+  }
+
+  return safeArray(data).reverse();
+}
+
+
+export async function sendLiveRoomMessage(
+  roomId,
+  userId,
+  content
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('live_room_messages')
+    .insert({
+      room_id:
+        normalizeId(roomId),
+
+      user_id:
+        normalizeId(userId),
+
+      content:
+        String(
+          content || ''
+        ).trim(),
+    })
+    .select(
+      'id,room_id,user_id,content,created_at,profiles(full_name,avatar_url)'
+    )
+    .single();
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not send the message.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function deleteLiveRoomMessage(
+  messageId
+) {
+  const {
+    error,
+  } = await supabase
+    .from('live_room_messages')
+    .delete()
+    .eq(
+      'id',
+      normalizeId(messageId)
+    );
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not delete the message.'
+    );
+  }
+}
+
+
+/*
+ * Host moderation, enforced in the database and on the LiveKit server
+ * (livekit-moderate edge function).
+ *
+ * action: 'mute' | 'remove' | 'restore' | 'speaker' | 'listener'
+ */
+export async function moderateLiveParticipant(
+  roomId,
+  userId,
+  action
+) {
+  const {
+    data,
+    error,
+  } = await supabase.functions.invoke(
+    'livekit-moderate',
+    {
+      body: {
+        roomId:
+          normalizeId(roomId),
+
+        userId:
+          normalizeId(userId),
+
+        action,
+      },
+    }
+  );
+
+  if (error || data?.error) {
+    let message =
+      data?.error;
+
+    // Non-2xx responses carry the JSON body in error.context.
+    if (
+      !message &&
+      error?.context?.json
+    ) {
+      try {
+        message =
+          (await error.context.json())?.error;
+      } catch {
+        message = null;
+      }
+    }
+
+    throw new Error(
+      message ||
+      error?.message ||
+      'Moderation failed.'
+    );
+  }
+
+  return data;
+}
