@@ -216,6 +216,17 @@ export default function NotificationsScreen() {
       }
 
       if (
+        item.type === 'event_live' &&
+        item.data?.room_id
+      ) {
+        router.push(
+          `/live/${item.data.room_id}`
+        );
+
+        return;
+      }
+
+      if (
         item.type === 'badge_earned'
       ) {
         router.push(
@@ -421,6 +432,9 @@ export default function NotificationsScreen() {
                     : item.type ===
                       'badge_earned'
                     ? '🏅'
+                    : item.type ===
+                      'event_live'
+                    ? '🔴'
                     : '🔔'}
                 </Text>
               </View>

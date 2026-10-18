@@ -4819,3 +4819,538 @@ export async function getPublicProfileShares(
     return [];
   }
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| EVENTS
+|--------------------------------------------------------------------------
+*/
+
+const EVENT_SELECT =
+  '*, organizations(name), host:profiles!events_host_id_fkey(full_name,avatar_url), live_audio_rooms(id,status)';
+
+/*
+ * Upcoming and live events, soonest first.
+ * Events that started more than a day ago and are not live are hidden.
+ */
+export async function getEvents({
+  limit = 50,
+} = {}) {
+  const since = new Date(
+    Date.now() - 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('events')
+    .select(EVENT_SELECT)
+    .in(
+      'status',
+      [
+        'scheduled',
+        'live',
+      ]
+    )
+    .or(
+      `status.eq.live,starts_at.gte."${since}"`
+    )
+    .order(
+      'starts_at',
+      {
+        ascending: true,
+      }
+    )
+    .limit(limit);
+
+  if (error) {
+    console.error(
+      'getEvents error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load events.'
+    );
+  }
+
+  return safeArray(data).map(
+    (event) => ({
+      ...event,
+
+      liveRoom:
+        safeArray(
+          event.live_audio_rooms
+        ).find(
+          (room) =>
+            room.status === 'live'
+        ) || null,
+    })
+  );
+}
+
+
+export async function createEvent({
+  title,
+  description = '',
+  eventType = 'live_class',
+  startsAt,
+  durationMinutes = 60,
+  meetingUrl = null,
+  capacity = null,
+}) {
+  const hostId =
+    await getCurrentUserId();
+
+  if (!hostId) {
+    throw new Error(
+      'Please log in to schedule an event.'
+    );
+  }
+
+  const start =
+    new Date(startsAt);
+
+  if (
+    Number.isNaN(
+      start.getTime()
+    )
+  ) {
+    throw new Error(
+      'Enter a valid date and time.'
+    );
+  }
+
+  const minutes =
+    Number(durationMinutes) || 60;
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('events')
+    .insert({
+      title:
+        title.trim(),
+
+      description:
+        description.trim() ||
+        null,
+
+      event_type:
+        eventType,
+
+      starts_at:
+        start.toISOString(),
+
+      ends_at:
+        new Date(
+          start.getTime() +
+          minutes * 60 * 1000
+        ).toISOString(),
+
+      meeting_url:
+        meetingUrl?.trim() ||
+        null,
+
+      capacity:
+        capacity
+          ? Number(capacity)
+          : null,
+
+      host_id:
+        hostId,
+
+      status:
+        'scheduled',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(
+      'createEvent error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not schedule the event.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function getMyEventRegistrations(
+  userId
+) {
+  const id =
+    normalizeId(userId);
+
+  if (!id) {
+    return new Set();
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('event_registrations')
+    .select('event_id')
+    .eq(
+      'user_id',
+      id
+    );
+
+  if (error) {
+    console.error(
+      'getMyEventRegistrations error:',
+      error
+    );
+
+    return new Set();
+  }
+
+  return new Set(
+    safeArray(data).map(
+      (row) => row.event_id
+    )
+  );
+}
+
+
+export async function isRegisteredForEvent(
+  eventId,
+  userId
+) {
+  const registrations =
+    await getMyEventRegistrations(
+      userId
+    );
+
+  return registrations.has(
+    normalizeId(eventId)
+  );
+}
+
+
+/*
+ * Registers or unregisters the user.
+ * Returns true when the user is now registered.
+ */
+export async function toggleEventRegistration(
+  eventId,
+  userId
+) {
+  const event =
+    normalizeId(eventId);
+
+  const user =
+    normalizeId(userId);
+
+  if (
+    !event ||
+    !user
+  ) {
+    throw new Error(
+      'Missing event or user.'
+    );
+  }
+
+  const {
+    data: existing,
+    error: lookupError,
+  } = await supabase
+    .from('event_registrations')
+    .select('id')
+    .eq(
+      'event_id',
+      event
+    )
+    .eq(
+      'user_id',
+      user
+    )
+    .maybeSingle();
+
+  if (lookupError) {
+    throw new Error(
+      lookupError.message
+    );
+  }
+
+  if (existing) {
+    const {
+      error,
+    } = await supabase
+      .from('event_registrations')
+      .delete()
+      .eq(
+        'id',
+        existing.id
+      );
+
+    if (error) {
+      throw new Error(
+        error.message
+      );
+    }
+
+    return false;
+  }
+
+  const {
+    error,
+  } = await supabase
+    .from('event_registrations')
+    .insert({
+      event_id:
+        event,
+
+      user_id:
+        user,
+    });
+
+  if (error) {
+    throw new Error(
+      error.message
+    );
+  }
+
+  return true;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LIVE AUDIO ROOMS
+|--------------------------------------------------------------------------
+|
+| Hosts start and end rooms; attendees join as listeners and the host can
+| promote them to speakers. Roles are enforced in the database, and the
+| livekit-token edge function only lets hosts and speakers publish audio.
+*/
+
+async function callLiveRpc(
+  name,
+  params,
+  fallbackMessage
+) {
+  const {
+    data,
+    error,
+  } = await supabase.rpc(
+    name,
+    params
+  );
+
+  if (error) {
+    console.error(
+      `${name} error:`,
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      fallbackMessage
+    );
+  }
+
+  return data;
+}
+
+
+export function startLiveRoom(
+  eventId
+) {
+  return callLiveRpc(
+    'start_live_room',
+    {
+      p_event_id:
+        normalizeId(eventId),
+    },
+    'Could not start the live session.'
+  );
+}
+
+
+export function joinLiveRoom(
+  roomId
+) {
+  return callLiveRpc(
+    'join_live_room',
+    {
+      p_room_id:
+        normalizeId(roomId),
+    },
+    'Could not join the live session.'
+  );
+}
+
+
+export function endLiveRoom(
+  roomId
+) {
+  return callLiveRpc(
+    'end_live_room',
+    {
+      p_room_id:
+        normalizeId(roomId),
+    },
+    'Could not end the live session.'
+  );
+}
+
+
+export function setLiveParticipantRole(
+  roomId,
+  userId,
+  role
+) {
+  return callLiveRpc(
+    'set_live_participant_role',
+    {
+      p_room_id:
+        normalizeId(roomId),
+
+      p_user_id:
+        normalizeId(userId),
+
+      p_role:
+        role,
+    },
+    'Could not change the participant role.'
+  );
+}
+
+
+export async function getLiveRoom(
+  roomId
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('live_audio_rooms')
+    .select(
+      '*, events(id,title,description,host_id)'
+    )
+    .eq(
+      'id',
+      normalizeId(roomId)
+    )
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not load the live room.'
+    );
+  }
+
+  return data;
+}
+
+
+/*
+ * People currently in the room (left_at is null), host first,
+ * then speakers, then raised hands, then listeners.
+ */
+export async function getLiveParticipants(
+  roomId
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('live_audio_participants')
+    .select(
+      'id,user_id,role,hand_raised,is_muted,joined_at,profiles(full_name,avatar_url)'
+    )
+    .eq(
+      'room_id',
+      normalizeId(roomId)
+    )
+    .is(
+      'left_at',
+      null
+    )
+    .order(
+      'joined_at',
+      {
+        ascending: true,
+      }
+    );
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not load participants.'
+    );
+  }
+
+  const rank = {
+    host: 0,
+    speaker: 1,
+    listener: 2,
+  };
+
+  return safeArray(data).sort(
+    (a, b) =>
+      (rank[a.role] ?? 3) -
+        (rank[b.role] ?? 3) ||
+      Number(b.hand_raised) -
+        Number(a.hand_raised)
+  );
+}
+
+
+export async function updateMyLiveParticipation(
+  roomId,
+  userId,
+  changes
+) {
+  const {
+    error,
+  } = await supabase
+    .from('live_audio_participants')
+    .update(changes)
+    .eq(
+      'room_id',
+      normalizeId(roomId)
+    )
+    .eq(
+      'user_id',
+      normalizeId(userId)
+    );
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not update your participation.'
+    );
+  }
+}
+
+
+export function leaveLiveRoom(
+  roomId,
+  userId
+) {
+  return updateMyLiveParticipation(
+    roomId,
+    userId,
+    {
+      left_at:
+        new Date().toISOString(),
+
+      hand_raised:
+        false,
+    }
+  );
+}
