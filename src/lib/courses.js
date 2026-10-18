@@ -15,6 +15,7 @@ export async function getCourses() {
 
     thumbnail: course.thumbnail_url,
     teacher: course.teacher_name,
+    isPremium: !!course.is_premium,
 
     lessons: course.lesson_count || 0,
 
@@ -100,4 +101,47 @@ export async function getCourseById(id) {
       (section) => section.lessons
     ),
   };
+}
+
+
+export async function getCategories() {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id,name')
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}
+
+/*
+ * Enrollment counts, ratings and trending score for published courses,
+ * ordered by trending score. Returns a Map keyed by course id; Map
+ * iteration order is the trending order.
+ */
+export async function getCourseStats({ limit = 200, categoryId = null } = {}) {
+  const { data, error } = await supabase.rpc('get_course_discovery_stats', {
+    p_limit: limit,
+    p_category_id: categoryId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return new Map(
+    (data || []).map((row) => [
+      row.course_id,
+      {
+        enrollments: row.enrollments_total || 0,
+        recentEnrollments: row.enrollments_recent || 0,
+        rating: row.avg_rating == null ? null : Number(row.avg_rating),
+        reviews: row.review_count || 0,
+        score: Number(row.trending_score) || 0,
+      },
+    ])
+  );
 }

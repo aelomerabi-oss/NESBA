@@ -2886,26 +2886,61 @@ export async function getTrendingCourses(
   limit = 10
 ) {
   /*
-   * Keep this resilient to the current database schema.
-   * Published courses are ordered by newest first.
-   * If enrollment statistics are available later,
-   * this function can rank by them without changing
-   * the Home screen API.
+   * Ranked by get_course_discovery_stats (recent and total
+   * enrollments plus ratings). Falls back to newest first
+   * if the ranking cannot be loaded.
    */
 
   const courses =
     await getCourses({
       limit: Math.max(
         limit,
-        20
+        50
       ),
       offset: 0,
     });
 
-  return courses.slice(
-    0,
-    limit
+  const {
+    data: ranking,
+    error,
+  } = await supabase.rpc(
+    'get_course_discovery_stats',
+    {
+      p_limit: 200,
+    }
   );
+
+  if (error) {
+    console.error(
+      'getTrendingCourses ranking error:',
+      error
+    );
+
+    return courses.slice(
+      0,
+      limit
+    );
+  }
+
+  const rank = new Map(
+    safeArray(ranking).map(
+      (row, index) => [
+        row.course_id,
+        index,
+      ]
+    )
+  );
+
+  return [...courses]
+    .sort(
+      (a, b) =>
+        (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    )
+    .slice(
+      0,
+      limit
+    );
 }
 
 
