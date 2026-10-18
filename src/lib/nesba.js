@@ -5688,3 +5688,380 @@ export async function markDirectMessagesRead(
     );
   }
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| COURSE BUILDER
+|--------------------------------------------------------------------------
+|
+| Used by Creator Studio. A course has sections; each section has lessons
+| (course_modules); each lesson has content items (lesson_content).
+| Teachers can only write to courses where they are teacher_id (RLS).
+*/
+
+function courseBuilderError(
+  label,
+  error,
+  fallbackMessage
+) {
+  console.error(
+    `${label} error:`,
+    error
+  );
+
+  return new Error(
+    error?.message ||
+    fallbackMessage
+  );
+}
+
+
+export async function getCategories() {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('categories')
+    .select('id,name')
+    .order(
+      'name',
+      {
+        ascending: true,
+      }
+    );
+
+  if (error) {
+    throw courseBuilderError(
+      'getCategories',
+      error,
+      'Could not load categories.'
+    );
+  }
+
+  return safeArray(data);
+}
+
+
+/*
+ * Courses the user teaches, newest first, drafts included.
+ */
+export async function getMyCourses(
+  userId
+) {
+  const id =
+    normalizeId(userId);
+
+  if (!id) {
+    return [];
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('courses')
+    .select(
+      'id,title,description,thumbnail_url,difficulty,category_id,is_published,published_at,lesson_count,duration_minutes,created_at,updated_at'
+    )
+    .eq(
+      'teacher_id',
+      id
+    )
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    );
+
+  if (error) {
+    throw courseBuilderError(
+      'getMyCourses',
+      error,
+      'Could not load your courses.'
+    );
+  }
+
+  return safeArray(data);
+}
+
+
+export async function createCourse({
+  title,
+  description = '',
+  difficulty = 'beginner',
+  thumbnailUrl = null,
+  categoryId = null,
+  isPublished = false,
+  isPremium = false,
+}) {
+  const teacherId =
+    await getCurrentUserId();
+
+  if (!teacherId) {
+    throw new Error(
+      'Please log in before creating a course.'
+    );
+  }
+
+  if (
+    !String(
+      title || ''
+    ).trim()
+  ) {
+    throw new Error(
+      'Course title is required.'
+    );
+  }
+
+  const {
+    data: profile,
+  } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq(
+      'id',
+      teacherId
+    )
+    .maybeSingle();
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('courses')
+    .insert({
+      title:
+        title.trim(),
+
+      description:
+        description?.trim() ||
+        null,
+
+      difficulty,
+
+      thumbnail_url:
+        thumbnailUrl ||
+        null,
+
+      category_id:
+        categoryId ||
+        null,
+
+      teacher_id:
+        teacherId,
+
+      teacher_name:
+        profile?.full_name ||
+        null,
+
+      is_premium:
+        Boolean(
+          isPremium
+        ),
+
+      // The column defaults to true; drafts must be saved explicitly.
+      is_published:
+        Boolean(
+          isPublished
+        ),
+
+      published_at:
+        isPublished
+          ? new Date().toISOString()
+          : null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw courseBuilderError(
+      'createCourse',
+      error,
+      'Could not create the course.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function createCourseSection({
+  courseId,
+  title,
+  description = null,
+  sortOrder = 0,
+}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('course_sections')
+    .insert({
+      course_id:
+        normalizeId(courseId),
+
+      title:
+        String(
+          title || ''
+        ).trim() ||
+        'Untitled section',
+
+      description:
+        description ||
+        null,
+
+      sort_order:
+        Number(sortOrder) || 0,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw courseBuilderError(
+      'createCourseSection',
+      error,
+      'Could not create the section.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function createCourseLesson({
+  courseId,
+  sectionId = null,
+  title,
+  durationMinutes = 0,
+  sortOrder = 0,
+  isLocked = false,
+  videoUrl = null,
+}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('course_modules')
+    .insert({
+      course_id:
+        normalizeId(courseId),
+
+      section_id:
+        normalizeId(sectionId),
+
+      title:
+        String(
+          title || ''
+        ).trim() ||
+        'Untitled lesson',
+
+      duration_minutes:
+        Number(durationMinutes) || 0,
+
+      sort_order:
+        Number(sortOrder) || 0,
+
+      is_locked:
+        Boolean(
+          isLocked
+        ),
+
+      video_url:
+        videoUrl ||
+        null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw courseBuilderError(
+      'createCourseLesson',
+      error,
+      'Could not create the lesson.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function createLessonContent({
+  lessonId,
+  title,
+  description = null,
+  contentType = 'text',
+  provider = null,
+  contentUrl = null,
+  storagePath = null,
+  durationMinutes = null,
+  sortOrder = 1,
+  isRequired = true,
+  isPublished = false,
+}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('lesson_content')
+    .insert({
+      lesson_id:
+        normalizeId(lessonId),
+
+      title:
+        String(
+          title || ''
+        ).trim() ||
+        'Lesson content',
+
+      description:
+        description ||
+        null,
+
+      content_type:
+        contentType,
+
+      provider:
+        provider ||
+        null,
+
+      content_url:
+        contentUrl ||
+        null,
+
+      storage_path:
+        storagePath ||
+        null,
+
+      duration_minutes:
+        durationMinutes == null
+          ? null
+          : Number(durationMinutes) || 0,
+
+      sort_order:
+        Number(sortOrder) || 1,
+
+      is_required:
+        Boolean(
+          isRequired
+        ),
+
+      is_published:
+        Boolean(
+          isPublished
+        ),
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw courseBuilderError(
+      'createLessonContent',
+      error,
+      'Could not save the lesson content.'
+    );
+  }
+
+  return data;
+}

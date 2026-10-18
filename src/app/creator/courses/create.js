@@ -676,6 +676,8 @@ export default function CreatorCourseBuilder() {
           .from('courses')
           .update({
             is_published: true,
+            published_at:
+              new Date().toISOString(),
           })
           .eq(
             'id',
