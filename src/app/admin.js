@@ -42,7 +42,7 @@ export default function AdminScreen() {
         supabase
           .from('creator_applications')
           .select(
-            'id,user_id,requested_role,organization_name,organization_type,expertise,experience,reason,status,created_at'
+            'id,user_id,requested_role,organization_name,organization_type,description,website,location,contact_email,expertise,experience,reason,status,created_at'
           )
           .eq('status', 'pending')
           .order('created_at', { ascending: true }),
@@ -192,6 +192,25 @@ export default function AdminScreen() {
           {r.organization_name ? (
             <Text style={styles.org}>
               {r.organization_name}
+              {r.organization_type
+                ? ` · ${r.organization_type.replace(/_/g, ' ')}`
+                : ''}
+            </Text>
+          ) : null}
+
+          {r.description ? (
+            <Text style={styles.small}>
+              {r.description}
+            </Text>
+          ) : null}
+
+          {[r.website, r.location, r.contact_email]
+            .filter(Boolean)
+            .length ? (
+            <Text style={styles.small}>
+              {[r.website, r.location, r.contact_email]
+                .filter(Boolean)
+                .join(' · ')}
             </Text>
           ) : null}
 

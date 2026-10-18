@@ -6087,45 +6087,10 @@ export async function createLessonContent({
 | ORGANIZATIONS
 |--------------------------------------------------------------------------
 |
-| New organizations start as 'pending'; only NESBA admins can verify them
-| (enforced in the database). The owner is added as an 'owner' member
-| automatically.
+| Organizations are created only when a NESBA admin approves an
+| application (enforced in the database). The owner is added as an
+| 'owner' member automatically.
 */
-
-function organizationSlug(
-  name
-) {
-  const base =
-    String(
-      name || ''
-    )
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(
-        /[^a-z0-9]+/g,
-        '-'
-      )
-      .replace(
-        /^-+|-+$/g,
-        ''
-      )
-      .slice(
-        0,
-        48
-      ) ||
-    'organization';
-
-  const suffix =
-    Math.random()
-      .toString(36)
-      .slice(
-        2,
-        8
-      );
-
-  return `${base}-${suffix}`;
-}
-
 
 export async function getOrganizations() {
   const {
@@ -6168,22 +6133,20 @@ export async function getOrganizations() {
 }
 
 
-export async function createOrganization({
+/*
+ * Organizations are created by NESBA admins when they approve an
+ * application (review_creator_request). This files or updates the
+ * signed-in user's pending organization application.
+ */
+export async function applyForOrganization({
   name,
-  description = '',
   organizationType = null,
+  description = null,
   website = null,
   location = null,
+  contactEmail = null,
+  reason = null,
 }) {
-  const ownerId =
-    await getCurrentUserId();
-
-  if (!ownerId) {
-    throw new Error(
-      'Please log in to create an organization.'
-    );
-  }
-
   if (
     !String(
       name || ''
@@ -6197,48 +6160,41 @@ export async function createOrganization({
   const {
     data,
     error,
-  } = await supabase
-    .from('organizations')
-    .insert({
-      owner_id:
-        ownerId,
+  } = await supabase.rpc(
+    'apply_for_organization',
+    {
+      p_name:
+        name,
 
-      name:
-        name.trim(),
+      p_type:
+        organizationType,
 
-      slug:
-        organizationSlug(
-          name
-        ),
+      p_description:
+        description,
 
-      description:
-        description?.trim() ||
-        null,
+      p_website:
+        website,
 
-      organization_type:
-        organizationType ||
-        null,
+      p_location:
+        location,
 
-      website_url:
-        website ||
-        null,
+      p_contact_email:
+        contactEmail,
 
-      location:
-        location ||
-        null,
-    })
-    .select()
-    .single();
+      p_reason:
+        reason,
+    }
+  );
 
   if (error) {
     console.error(
-      'createOrganization error:',
+      'applyForOrganization error:',
       error
     );
 
     throw new Error(
       error.message ||
-      'Could not create the organization.'
+      'Could not submit the organization application.'
     );
   }
 

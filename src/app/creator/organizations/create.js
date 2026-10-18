@@ -21,7 +21,7 @@ import {
 } from '../../../constants/theme';
 
 import {
-    createOrganization,
+    applyForOrganization,
 } from '../../../lib/nesba';
 
 const ORGANIZATION_TYPES = [
@@ -102,25 +102,22 @@ export default function CreateOrganization() {
     try {
       setSaving(true);
 
-      const organization =
-        await createOrganization({
-        name: name.trim(),
-        description: description.trim(),
+      await applyForOrganization({
+        name,
+        description,
         organizationType,
-        website: website.trim() || null,
-        location: location.trim() || null,
+        website,
+        location,
       });
 
       Alert.alert(
-        'Organization created',
-        'Your organization has been created and is pending NESBA verification.',
+        'Application submitted',
+        'NESBA will review your organization. It is created and listed once an admin approves it.',
         [
           {
             text: 'Continue',
             onPress: () => {
-              router.replace(
-                `/organization/${organization.id}`
-              );
+              router.replace('/creator');
             },
           },
         ]
@@ -167,8 +164,9 @@ export default function CreateOrganization() {
           </Text>
 
           <Text style={styles.subtitle}>
-            Create an educational presence on NESBA and
-            connect your courses, events, media and community.
+            Apply to bring your organization to NESBA. Once an
+            admin approves it, connect your courses, events, media
+            and community.
           </Text>
         </View>
       </View>
@@ -384,8 +382,8 @@ export default function CreateOrganization() {
 
         <Text style={styles.createButtonText}>
           {saving
-            ? 'Creating Organization...'
-            : 'Create Organization'}
+            ? 'Submitting...'
+            : 'Submit for Review'}
         </Text>
       </Pressable>
 
