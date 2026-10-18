@@ -1103,7 +1103,7 @@ export default function HomeScreen() {
               .from('posts')
               .select(`
                 *,
-                profiles:user_id (
+                profiles:author_id (
                   id,
                   full_name,
                   avatar_url
@@ -1555,10 +1555,10 @@ export default function HomeScreen() {
             error,
           } =
             await supabaseClient
-              .from('comments')
+              .from('post_comments')
               .select(`
                 *,
-                profiles:user_id (
+                profiles:author_id (
                   id,
                   full_name,
                   avatar_url
@@ -2300,23 +2300,41 @@ export default function HomeScreen() {
         const arrayBuffer =
           await response.arrayBuffer();
 
-        const extension =
+        const nameParts =
           (
             file.name ||
             ''
-          )
-            .split('.')
-            .pop()
-            ?.toLowerCase() ||
+          ).split('.');
+
+        const extension =
+          (
+            nameParts.length > 1 &&
+            nameParts
+              .pop()
+              .toLowerCase()
+          ) ||
           (
             file.type ===
             'video'
               ? 'mp4'
+              : file.type ===
+                'audio'
+              ? 'm4a'
               : 'jpg'
           );
 
+        if (!currentUserId) {
+          throw new Error(
+            'Please log in to upload.'
+          );
+        }
+
+        /*
+         * Storage policies only allow uploads inside a
+         * folder named after the signed-in user's id.
+         */
         const path =
-          `${folder}/${currentUserId || 'anonymous'}-${Date.now()}-${Math.random()
+          `${currentUserId}/${folder}/${Date.now()}-${Math.random()
             .toString(36)
             .substring(2)}.${extension}`;
 
@@ -2434,10 +2452,10 @@ export default function HomeScreen() {
           file,
 
           bucket:
-            'comments',
+            'posts',
 
           folder:
-            'media',
+            'comments',
         });
 
       },
@@ -2767,7 +2785,7 @@ export default function HomeScreen() {
           =============================================== */
 
           const insertData = {
-            user_id:
+            author_id:
               currentUserId,
 
             content:
@@ -2796,7 +2814,7 @@ export default function HomeScreen() {
               )
               .select(`
                 *,
-                profiles:user_id (
+                profiles:author_id (
                   id,
                   full_name,
                   avatar_url
@@ -2966,7 +2984,7 @@ export default function HomeScreen() {
                           post.id
                         )
                         .eq(
-                          'user_id',
+                          'author_id',
                           currentUserId
                         );
 
@@ -3292,7 +3310,7 @@ export default function HomeScreen() {
             post_id:
               postId,
 
-            user_id:
+            author_id:
               currentUserId,
 
             content:
@@ -3300,6 +3318,12 @@ export default function HomeScreen() {
 
             media_url:
               mediaUrl,
+
+            media_type:
+              mediaUrl
+                ? media?.type ||
+                  'image'
+                : null,
 
             parent_id:
               reply?.id ||
@@ -3312,13 +3336,13 @@ export default function HomeScreen() {
             error,
           } =
             await supabaseClient
-              .from('comments')
+              .from('post_comments')
               .insert(
                 commentData
               )
               .select(`
                 *,
-                profiles:user_id (
+                profiles:author_id (
                   id,
                   full_name,
                   avatar_url
@@ -3536,19 +3560,24 @@ export default function HomeScreen() {
             media_type:
               storyDraft.type,
 
-            content:
+            caption:
               storyText.trim() ||
               null,
 
-            location:
+            location_text:
               storyLocation.trim() ||
               null,
 
-            filter:
-              storyFilter,
+            filter_name:
+              storyFilter ||
+              'normal',
 
             audio_url:
               audioUrl,
+
+            audio_name:
+              storyAudio?.name ||
+              null,
           };
 
 
@@ -3711,7 +3740,7 @@ export default function HomeScreen() {
                 currentUserId
               )
               .eq(
-                'following_id',
+                'followed_user_id',
                 user.id
               )
               .maybeSingle();
@@ -3743,7 +3772,7 @@ export default function HomeScreen() {
                   follower_id:
                     currentUserId,
 
-                  following_id:
+                  followed_user_id:
                     user.id,
                 });
 
@@ -3789,6 +3818,13 @@ export default function HomeScreen() {
 
         const query =
           value.trim();
+
+        // Characters that would break PostgREST or() filters.
+        const safeQuery =
+          query.replace(
+            /[,()%*\\]/g,
+            ' '
+          );
 
         if (
           query.length < 2
@@ -3837,7 +3873,11 @@ export default function HomeScreen() {
                 .from('courses')
                 .select('*')
                 .or(
-                  `title.ilike.%${query}%,name.ilike.%${query}%`
+                  `title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`
+                )
+                .eq(
+                  'is_published',
+                  true
                 )
                 .limit(8),
 
@@ -3845,7 +3885,7 @@ export default function HomeScreen() {
                 .from('posts')
                 .select(`
                   *,
-                  profiles:user_id (
+                  profiles:author_id (
                     id,
                     full_name,
                     avatar_url

@@ -28,6 +28,7 @@ export default function LessonScreen() {
   const [lesson, setLesson] = useState(null);
   const [content, setContent] = useState([]);
   const [completed, setCompleted] = useState(false);
+  const [canViewContent, setCanViewContent] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -39,7 +40,7 @@ export default function LessonScreen() {
       try {
         const { data, error } = await supabase
           .from('course_modules')
-          .select('*, courses(id,title)')
+          .select('*, courses(id,title,teacher_id)')
           .eq('id', id)
           .single();
 
@@ -49,6 +50,27 @@ export default function LessonScreen() {
         }
 
         setLesson(data);
+
+        /*
+         * Lesson content is only readable by enrolled learners and the
+         * course teacher, so explain an empty list to everyone else.
+         */
+        let allowed =
+          !!session?.user &&
+          data?.courses?.teacher_id === session.user.id;
+
+        if (session?.user && !allowed) {
+          const { data: enrollment } = await supabase
+            .from('enrollments')
+            .select('id')
+            .eq('user_id', session.user.id)
+            .eq('course_id', data.course_id)
+            .maybeSingle();
+
+          allowed = !!enrollment;
+        }
+
+        setCanViewContent(allowed);
 
         /*
          * Load lesson content.
@@ -412,12 +434,33 @@ export default function LessonScreen() {
             />
 
             <Text style={styles.emptyContentTitle}>
-              No content yet
+              {canViewContent
+                ? 'No content yet'
+                : 'Enroll to unlock this lesson'}
             </Text>
 
             <Text style={styles.emptyContentText}>
-              Learning content will be available here.
+              {canViewContent
+                ? 'Learning content will be available here.'
+                : session?.user
+                ? 'Lesson videos, files and materials are available to learners enrolled in this course.'
+                : 'Log in and enroll in this course to see the lesson videos, files and materials.'}
             </Text>
+
+            {!canViewContent && !!lesson?.course_id && (
+              <Pressable
+                style={styles.enrollPrompt}
+                onPress={() =>
+                  router.push(
+                    `/course/${lesson.course_id}`
+                  )
+                }
+              >
+                <Text style={styles.enrollPromptText}>
+                  Go to course
+                </Text>
+              </Pressable>
+            )}
           </View>
         ) : (
           content.map((item) => {
@@ -675,6 +718,19 @@ export default function LessonScreen() {
 }
 
 const styles = StyleSheet.create({
+  enrollPrompt: {
+    marginTop: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 10,
+  },
+
+  enrollPromptText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+
   container: {
     flex: 1,
     backgroundColor: colors.background,

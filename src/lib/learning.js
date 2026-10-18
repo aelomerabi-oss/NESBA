@@ -26,34 +26,37 @@ export async function getModuleById(
 }
 
 
+/*
+ * Marks a lesson complete. Course progress, certificates and badges are
+ * updated by the database (mark_lesson_complete / recompute trigger).
+ */
 export async function markLessonComplete(
   userId,
-  moduleId,
-  courseId
+  moduleId
 ) {
   const {
+    data,
     error,
-  } = await supabase
-    .from('lesson_progress')
-    .upsert(
-      {
-        user_id: userId,
-        module_id: moduleId,
-        course_id: courseId,
-        completed: true,
-      },
-      {
-        onConflict:
-          'user_id,module_id',
-      }
-    );
+  } = await supabase.rpc(
+    'mark_lesson_complete',
+    {
+      p_module_id: moduleId,
+    }
+  );
 
   if (error) {
     throw error;
   }
+
+  return data;
 }
 
 
+/*
+ * Ids of the lessons in a course the user has completed.
+ * lesson_progress has no course_id; lessons are matched through
+ * course_modules.
+ */
 export async function getLessonProgress(
   userId,
   courseId
@@ -64,14 +67,18 @@ export async function getLessonProgress(
   } = await supabase
     .from('lesson_progress')
     .select(
-      'module_id'
+      'module_id, course_modules!inner(course_id)'
     )
     .eq(
       'user_id',
       userId
     )
     .eq(
-      'course_id',
+      'completed',
+      true
+    )
+    .eq(
+      'course_modules.course_id',
       courseId
     );
 
@@ -80,7 +87,7 @@ export async function getLessonProgress(
   }
 
   return new Set(
-    data.map(
+    (data || []).map(
       (d) => d.module_id
     )
   );

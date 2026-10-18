@@ -24,10 +24,27 @@ import {
 
 import {
   pickLessonFile,
+  uploadMediaFile,
 } from '../../../lib/lesson-file-upload';
+
+import { createMediaItem } from '../../../lib/nesba';
+import { useAuth } from '../../../context/AuthContext';
+
+// Creator Studio media types -> media_items.media_type
+const MEDIA_ITEM_TYPES = {
+  podcast_series: 'podcast_episode',
+  audio_series: 'audio_lesson',
+  live_audio: 'recording',
+  video_recording: 'recording',
+};
 
 
 export default function CreatorMedia() {
+  const { session } = useAuth();
+
+  const [publishing, setPublishing] =
+    useState(false);
+
   const [mediaType, setMediaType] =
     useState('podcast_series');
 
@@ -121,7 +138,7 @@ export default function CreatorMedia() {
     }
   }
 
-  function publishMedia() {
+  async function publishMedia() {
     if (!title.trim()) {
       Alert.alert(
         'Required',
@@ -149,26 +166,89 @@ export default function CreatorMedia() {
       return;
     }
 
-    if (
-      !isSeries &&
-      !selectedFile
-    ) {
+    if (!selectedFile) {
       Alert.alert(
         'Required',
-        'Please select an audio or video file.'
+        isSeries
+          ? 'Please select the audio file for this episode.'
+          : 'Please select an audio or video file.'
       );
       return;
     }
 
-    Alert.alert(
-      'Ready to publish',
-      'The media publishing system is ready for the Supabase media tables and storage connection.',
-      [
-        {
-          text: 'OK',
-        },
-      ]
-    );
+    if (!session?.user?.id) {
+      Alert.alert(
+        'Login required',
+        'Please log in to publish media.'
+      );
+      return;
+    }
+
+    try {
+      setPublishing(true);
+
+      const uploaded =
+        await uploadMediaFile({
+          userId:
+            session.user.id,
+
+          file:
+            selectedFile,
+        });
+
+      const itemTitle =
+        isSeries
+          ? `${seriesTitle.trim()} · ${
+              episodeTitle.trim() ||
+              title.trim()
+            }`
+          : title.trim();
+
+      await createMediaItem({
+        title:
+          itemTitle,
+
+        description,
+
+        mediaType:
+          MEDIA_ITEM_TYPES[mediaType] ||
+          'recording',
+
+        mediaUrl:
+          uploaded.publicUrl,
+      });
+
+      setSelectedFile(null);
+      setEpisodeTitle('');
+
+      Alert.alert(
+        'Published',
+        'Your media is now in the NESBA Media Library.',
+        [
+          {
+            text: 'Open library',
+            onPress: () =>
+              router.push('/media'),
+          },
+          {
+            text: 'OK',
+          },
+        ]
+      );
+    } catch (error) {
+      console.error(
+        'Publish media error:',
+        error
+      );
+
+      Alert.alert(
+        'Could not publish',
+        error?.message ||
+          'Something went wrong.'
+      );
+    } finally {
+      setPublishing(false);
+    }
   }
 
   return (
@@ -708,9 +788,10 @@ export default function CreatorMedia() {
         onPress={
           publishMedia
         }
+        disabled={publishing}
         style={({ pressed }) => [
           styles.publishButton,
-          pressed &&
+          (pressed || publishing) &&
             styles.pressed,
         ]}
       >
@@ -725,7 +806,9 @@ export default function CreatorMedia() {
             styles.publishButtonText
           }
         >
-          Publish Media
+          {publishing
+            ? 'Publishing…'
+            : 'Publish Media'}
         </Text>
       </Pressable>
 

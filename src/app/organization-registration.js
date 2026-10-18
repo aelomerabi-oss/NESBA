@@ -21,6 +21,7 @@ import {
 } from '../constants/theme';
 
 import { supabase } from '../lib/supabase';
+import { applyForOrganization } from '../lib/nesba';
 
 const ORGANIZATION_TYPES = [
   {
@@ -168,42 +169,21 @@ export default function OrganizationRegistration() {
       }
 
       /*
-       * Organization applications are stored separately
-       * from organizations.
-       *
        * Submitting this form DOES NOT create an organization.
        *
-       * The application remains pending until NESBA
-       * administrators review and approve it.
+       * The application appears in the Admin screen; the
+       * organization is created when an admin approves it.
        */
 
-      const { error } =
-        await supabase
-          .from(
-            'organization_applications'
-          )
-          .insert({
-            applicant_id: user.id,
-            organization_name:
-              organizationName.trim(),
-            organization_type:
-              organizationType,
-            description:
-              description.trim(),
-            website:
-              website.trim() || null,
-            location:
-              location.trim() || null,
-            contact_email:
-              contactEmail.trim(),
-            reason:
-              reason.trim(),
-            status: 'pending',
-          });
-
-      if (error) {
-        throw error;
-      }
+      await applyForOrganization({
+        name: organizationName,
+        organizationType,
+        description,
+        website,
+        location,
+        contactEmail,
+        reason,
+      });
 
       Alert.alert(
         'Application Submitted',

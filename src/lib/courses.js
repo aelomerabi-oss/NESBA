@@ -45,6 +45,15 @@ export async function getCourseById(id) {
           is_locked,
           video_url
         )
+      ),
+      all_lessons:course_modules (
+        id,
+        title,
+        duration_minutes,
+        sort_order,
+        is_locked,
+        video_url,
+        section_id
       )
     `)
     .eq('id', id)
@@ -58,7 +67,30 @@ export async function getCourseById(id) {
     throw new Error('Course not found.');
   }
 
-  const sections = (data.course_sections || [])
+  /*
+   * Lessons created before sections existed have no section_id; show them
+   * in a "Lessons" group so they are not hidden from the course page.
+   */
+  const unsectioned = (data.all_lessons || []).filter(
+    (lesson) => !lesson.section_id
+  );
+
+  const sectionRows = [
+    ...(data.course_sections || []),
+    ...(unsectioned.length
+      ? [
+          {
+            id: `${data.id}-lessons`,
+            title: 'Lessons',
+            description: null,
+            sort_order: Number.MAX_SAFE_INTEGER,
+            course_modules: unsectioned,
+          },
+        ]
+      : []),
+  ];
+
+  const sections = sectionRows
     .sort(
       (a, b) =>
         (a.sort_order || 0) - (b.sort_order || 0)

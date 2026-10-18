@@ -162,6 +162,22 @@ export default function StudentSignup() {
         );
       }
 
+      /*
+       * When email confirmation is enabled, signUp returns no session:
+       * the user must confirm their email before logging in.
+       */
+      if (!data.session) {
+        setSuccessMessage(
+          'Account created. Check your email and tap the confirmation link, then log in.'
+        );
+
+        setTimeout(() => {
+          router.replace('/login');
+        }, 2500);
+
+        return;
+      }
+
       setSuccessMessage(
         'Your student account has been created successfully.'
       );

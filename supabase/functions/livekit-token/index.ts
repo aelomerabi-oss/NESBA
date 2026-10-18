@@ -106,12 +106,16 @@ Deno.serve(async (req) => {
 
       const { data: participant, error: participantError } = await supabase
         .from("live_audio_participants")
-        .select("role, left_at")
+        .select("role, left_at, is_removed")
         .eq("room_id", room.id)
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (participantError) throw participantError;
+
+      if (participant?.is_removed) {
+        return json({ error: "The host removed you from this session" }, 403);
+      }
 
       if (!participant || participant.left_at) {
         return json({ error: "Join the room before connecting" }, 403);

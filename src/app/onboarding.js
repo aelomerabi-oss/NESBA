@@ -79,12 +79,11 @@ export default function OnboardingScreen() {
 
     setSaving(true);
 
+    /*
+     * Role and requested_role are privileged fields that users cannot
+     * write directly; creator requests go through request_creator_role.
+     */
     const updateData = {
-      role: 'student',
-      requested_role:
-        selectedRole === 'student'
-          ? null
-          : selectedRole,
       goals: selectedGoals,
       onboarded: true,
       updated_at: new Date().toISOString(),
@@ -101,17 +100,34 @@ export default function OnboardingScreen() {
         .update(updateData)
         .eq('id', session.user.id);
 
+    let requestError = null;
+
+    if (
+      !error &&
+      selectedRole !== 'student' &&
+      user.role !== selectedRole &&
+      user.requestedRole !== selectedRole
+    ) {
+      ({ error: requestError } =
+        await supabase.rpc(
+          'request_creator_role',
+          {
+            p_role: selectedRole,
+          }
+        ));
+    }
+
     setSaving(false);
 
-    if (error) {
+    if (error || requestError) {
       console.error(
         'Onboarding save error:',
-        error
+        error || requestError
       );
 
       Alert.alert(
         'Something went wrong',
-        error.message
+        (error || requestError).message
       );
 
       return;
@@ -155,10 +171,6 @@ export default function OnboardingScreen() {
 
       <Text style={styles.subtitle}>
         What are you joining NESBA for?
-      </Text>
-
-      <Text style={styles.debugText}>
-        DEBUG: ONBOARDING V2 — 3 ROLES
       </Text>
 
       <View style={styles.roleList}>

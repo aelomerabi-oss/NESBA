@@ -404,8 +404,16 @@ export default function StoriesBar() {
       return;
     }
 
+    const storyId =
+      group.latestStory?.id ||
+      group.stories?.[0]?.id;
+
+    if (!storyId) {
+      return;
+    }
+
     router.push(
-      `/stories?userId=${group.userId}`
+      `/story/${storyId}`
     );
 
   }

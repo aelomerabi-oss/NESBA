@@ -1282,85 +1282,71 @@ export async function createPostWithMentions({
     return post;
   }
 
+  /*
+   * Resolve @names to profiles, then notify them through
+   * notify_post_mentions (notifications have no client INSERT policy).
+   */
+  const mentionedIds =
+    new Set();
+
   for (
     const username of mentions
   ) {
-    try {
-      const {
-        data: users,
-        error,
-      } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          avatar_url
-        `)
-        .ilike(
-          'full_name',
-          `%${username}%`
-        )
-        .limit(5);
+    const {
+      data: users,
+      error,
+    } = await supabase
+      .from('profiles')
+      .select('id')
+      .ilike(
+        'full_name',
+        `%${username.replace(/[%_]/g, '')}%`
+      )
+      .limit(5);
 
-      if (error) {
-        console.error(
-          'Mention lookup error:',
-          error
-        );
+    if (error) {
+      console.error(
+        'Mention lookup error:',
+        error
+      );
 
-        continue;
-      }
+      continue;
+    }
 
-      for (
-        const mentionedUser
-        of safeArray(users)
-      ) {
+    safeArray(users).forEach(
+      (mentionedUser) => {
         if (
-          String(
+          String(mentionedUser.id) !==
+          String(userId)
+        ) {
+          mentionedIds.add(
             mentionedUser.id
-          ) ===
-          String(
-            userId
-          )
-        ) {
-          continue;
-        }
-
-        try {
-          await createNotification({
-            userId:
-              mentionedUser.id,
-
-            actorId:
-              userId,
-
-            type:
-              'mention',
-
-            title:
-              'You were mentioned',
-
-            message:
-              'You were mentioned in a post.',
-
-            entityId:
-              post.id,
-          });
-        } catch (
-          notificationError
-        ) {
-          console.error(
-            'Mention notification error:',
-            notificationError
           );
         }
       }
-    } catch (
-      mentionError
-    ) {
+    );
+  }
+
+  if (mentionedIds.size) {
+    const {
+      error: notificationError,
+    } = await supabase.rpc(
+      'notify_post_mentions',
+      {
+        p_post_id:
+          post.id,
+
+        p_user_ids: [
+          ...mentionedIds,
+        ],
+      }
+    );
+
+    // Notifications should not break posting.
+    if (notificationError) {
       console.error(
-        'Mention processing error:',
-        mentionError
+        'Mention notification error:',
+        notificationError
       );
     }
   }
@@ -1475,7 +1461,7 @@ export async function uploadPostImage({
     'jpg';
 
   const path =
-    `posts/${id}/${Date.now()}-${Math.random()
+    `${id}/posts/${Date.now()}-${Math.random()
       .toString(36)
       .substring(2)}.${extension}`;
 
@@ -1598,7 +1584,7 @@ export async function uploadPostVideo({
     'mp4';
 
   const path =
-    `posts/${id}/${Date.now()}-${Math.random()
+    `${id}/posts/${Date.now()}-${Math.random()
       .toString(36)
       .substring(2)}.${extension}`;
 
@@ -2222,7 +2208,7 @@ export async function uploadCommentMedia({
 
   const blob = await response.blob();
   const extension = String(fileName).split('.').pop() || 'jpg';
-  const path = `comments/${id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+  const path = `${id}/comments/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
 
   const { error } = await supabase.storage.from('posts').upload(path, blob, {
     contentType: contentType || 'image/jpeg',
@@ -2364,11 +2350,6 @@ export async function createNotification({
     user_id:
       recipient,
 
-    actor_id:
-      normalizeId(
-        actorId
-      ),
-
     type:
       type ||
       'general',
@@ -2377,17 +2358,21 @@ export async function createNotification({
       title ||
       'NESBA',
 
-    message:
+    body:
       message ||
       null,
 
-    entity_id:
-      normalizeId(
-        entityId
-      ),
+    data: {
+      actor_id:
+        normalizeId(
+          actorId
+        ),
 
-    is_read:
-      false,
+      entity_id:
+        normalizeId(
+          entityId
+        ),
+    },
   };
 
   const {
@@ -2467,7 +2452,7 @@ export async function uploadStoryMedia({
     'jpg';
 
   const path =
-    `stories/${id}/${Date.now()}-${Math.random()
+    `${id}/stories/${Date.now()}-${Math.random()
       .toString(36)
       .substring(2)}.${extension}`;
 
@@ -3219,7 +3204,8 @@ export async function getUserBadges(
       id,
       user_id,
       badge_id,
-      earned_at,
+      earned_at:awarded_at,
+      awarded_at,
       badges (
         id,
         name,
@@ -3232,7 +3218,7 @@ export async function getUserBadges(
       id
     )
     .order(
-      'earned_at',
+      'awarded_at',
       {
         ascending:
           false,
@@ -3277,11 +3263,12 @@ export async function getUserCertificates(
       id,
       user_id,
       course_id,
-      certificate_url,
+      certificate_id,
       issued_at,
       courses (
         id,
-        title
+        title,
+        teacher_name
       )
     `)
     .eq(
@@ -3734,12 +3721,12 @@ export async function getNotifications(
     .select(`
       id,
       user_id,
-      actor_id,
       type,
       title,
-      message,
-      entity_id,
-      is_read,
+      message:body,
+      body,
+      data,
+      read_at,
       created_at
     `)
     .eq(
@@ -3785,8 +3772,8 @@ export async function markNotificationRead(
   } = await supabase
     .from('notifications')
     .update({
-      is_read:
-        true,
+      read_at:
+        new Date().toISOString(),
     })
     .eq(
       'id',
@@ -4175,13 +4162,13 @@ export async function uploadProfileImage({
     'jpg';
 
   const path =
-    `profiles/${id}/avatar-${Date.now()}.${extension}`;
+    `${id}/avatar-${Date.now()}.${extension}`;
 
   const {
     error,
   } = await supabase
     .storage
-    .from('profiles')
+    .from('avatars')
     .upload(
       path,
       blob,
@@ -4213,7 +4200,7 @@ export async function uploadProfileImage({
   } =
     supabase
       .storage
-      .from('profiles')
+      .from('avatars')
       .getPublicUrl(
         path
       );
@@ -4729,11 +4716,18 @@ export async function getPublicProfileAudio(
       data,
       error,
     } = await supabase
-      .from('audio')
+      .from('media_items')
       .select('*')
       .eq(
-        'user_id',
+        'creator_id',
         normalizeId(userId)
+      )
+      .in(
+        'media_type',
+        [
+          'podcast_episode',
+          'audio_lesson',
+        ]
       )
       .order(
         'created_at',
@@ -4768,11 +4762,15 @@ export async function getPublicProfileLectures(
       data,
       error,
     } = await supabase
-      .from('lectures')
+      .from('media_items')
       .select('*')
       .eq(
         'creator_id',
         normalizeId(userId)
+      )
+      .eq(
+        'media_type',
+        'recording'
       )
       .order(
         'created_at',
@@ -6089,45 +6087,10 @@ export async function createLessonContent({
 | ORGANIZATIONS
 |--------------------------------------------------------------------------
 |
-| New organizations start as 'pending'; only NESBA admins can verify them
-| (enforced in the database). The owner is added as an 'owner' member
-| automatically.
+| Organizations are created only when a NESBA admin approves an
+| application (enforced in the database). The owner is added as an
+| 'owner' member automatically.
 */
-
-function organizationSlug(
-  name
-) {
-  const base =
-    String(
-      name || ''
-    )
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(
-        /[^a-z0-9]+/g,
-        '-'
-      )
-      .replace(
-        /^-+|-+$/g,
-        ''
-      )
-      .slice(
-        0,
-        48
-      ) ||
-    'organization';
-
-  const suffix =
-    Math.random()
-      .toString(36)
-      .slice(
-        2,
-        8
-      );
-
-  return `${base}-${suffix}`;
-}
-
 
 export async function getOrganizations() {
   const {
@@ -6170,22 +6133,20 @@ export async function getOrganizations() {
 }
 
 
-export async function createOrganization({
+/*
+ * Organizations are created by NESBA admins when they approve an
+ * application (review_creator_request). This files or updates the
+ * signed-in user's pending organization application.
+ */
+export async function applyForOrganization({
   name,
-  description = '',
   organizationType = null,
+  description = null,
   website = null,
   location = null,
+  contactEmail = null,
+  reason = null,
 }) {
-  const ownerId =
-    await getCurrentUserId();
-
-  if (!ownerId) {
-    throw new Error(
-      'Please log in to create an organization.'
-    );
-  }
-
   if (
     !String(
       name || ''
@@ -6199,48 +6160,41 @@ export async function createOrganization({
   const {
     data,
     error,
-  } = await supabase
-    .from('organizations')
-    .insert({
-      owner_id:
-        ownerId,
+  } = await supabase.rpc(
+    'apply_for_organization',
+    {
+      p_name:
+        name,
 
-      name:
-        name.trim(),
+      p_type:
+        organizationType,
 
-      slug:
-        organizationSlug(
-          name
-        ),
+      p_description:
+        description,
 
-      description:
-        description?.trim() ||
-        null,
+      p_website:
+        website,
 
-      organization_type:
-        organizationType ||
-        null,
+      p_location:
+        location,
 
-      website_url:
-        website ||
-        null,
+      p_contact_email:
+        contactEmail,
 
-      location:
-        location ||
-        null,
-    })
-    .select()
-    .single();
+      p_reason:
+        reason,
+    }
+  );
 
   if (error) {
     console.error(
-      'createOrganization error:',
+      'applyForOrganization error:',
       error
     );
 
     throw new Error(
       error.message ||
-      'Could not create the organization.'
+      'Could not submit the organization application.'
     );
   }
 
@@ -6566,4 +6520,237 @@ export async function getMediaLibrary({
     (item) =>
       item.media_url
   );
+}
+
+
+/*
+ * Publishes a media item (recording, podcast episode or audio lesson)
+ * for the signed-in creator.
+ */
+export async function createMediaItem({
+  title,
+  description = null,
+  mediaType,
+  mediaUrl,
+  isPublished = true,
+}) {
+  const creatorId =
+    await getCurrentUserId();
+
+  if (!creatorId) {
+    throw new Error(
+      'Please log in to publish media.'
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('media_items')
+    .insert({
+      title:
+        String(
+          title || ''
+        ).trim(),
+
+      description:
+        description?.trim() ||
+        null,
+
+      media_type:
+        mediaType,
+
+      media_url:
+        mediaUrl,
+
+      creator_id:
+        creatorId,
+
+      is_published:
+        Boolean(
+          isPublished
+        ),
+
+      published_at:
+        isPublished
+          ? new Date().toISOString()
+          : null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(
+      'createMediaItem error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not publish the media.'
+    );
+  }
+
+  return data;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LIVE ROOM CHAT AND MODERATION
+|--------------------------------------------------------------------------
+*/
+
+export async function getLiveRoomMessages(
+  roomId,
+  {
+    limit = 200,
+  } = {}
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('live_room_messages')
+    .select(
+      'id,room_id,user_id,content,created_at,profiles(full_name,avatar_url)'
+    )
+    .eq(
+      'room_id',
+      normalizeId(roomId)
+    )
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    )
+    .limit(limit);
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not load the chat.'
+    );
+  }
+
+  return safeArray(data).reverse();
+}
+
+
+export async function sendLiveRoomMessage(
+  roomId,
+  userId,
+  content
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('live_room_messages')
+    .insert({
+      room_id:
+        normalizeId(roomId),
+
+      user_id:
+        normalizeId(userId),
+
+      content:
+        String(
+          content || ''
+        ).trim(),
+    })
+    .select(
+      'id,room_id,user_id,content,created_at,profiles(full_name,avatar_url)'
+    )
+    .single();
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not send the message.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function deleteLiveRoomMessage(
+  messageId
+) {
+  const {
+    error,
+  } = await supabase
+    .from('live_room_messages')
+    .delete()
+    .eq(
+      'id',
+      normalizeId(messageId)
+    );
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not delete the message.'
+    );
+  }
+}
+
+
+/*
+ * Host moderation, enforced in the database and on the LiveKit server
+ * (livekit-moderate edge function).
+ *
+ * action: 'mute' | 'remove' | 'restore' | 'speaker' | 'listener'
+ */
+export async function moderateLiveParticipant(
+  roomId,
+  userId,
+  action
+) {
+  const {
+    data,
+    error,
+  } = await supabase.functions.invoke(
+    'livekit-moderate',
+    {
+      body: {
+        roomId:
+          normalizeId(roomId),
+
+        userId:
+          normalizeId(userId),
+
+        action,
+      },
+    }
+  );
+
+  if (error || data?.error) {
+    let message =
+      data?.error;
+
+    // Non-2xx responses carry the JSON body in error.context.
+    if (
+      !message &&
+      error?.context?.json
+    ) {
+      try {
+        message =
+          (await error.context.json())?.error;
+      } catch {
+        message = null;
+      }
+    }
+
+    throw new Error(
+      message ||
+      error?.message ||
+      'Moderation failed.'
+    );
+  }
+
+  return data;
 }
