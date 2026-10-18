@@ -5354,3 +5354,337 @@ export function leaveLiveRoom(
     }
   );
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| DIRECT MESSAGES
+|--------------------------------------------------------------------------
+*/
+
+const DIRECT_MESSAGE_SELECT =
+  'id,sender_id,recipient_id,content,created_at,read_at,message_type,media_url';
+
+/*
+ * One row per conversation partner: the latest message, the partner's
+ * profile (person) and how many of their messages are unread.
+ */
+export async function getInbox(
+  userId
+) {
+  const id =
+    normalizeId(userId);
+
+  if (!id) {
+    return [];
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('direct_messages')
+    .select(DIRECT_MESSAGE_SELECT)
+    .or(
+      `sender_id.eq.${id},recipient_id.eq.${id}`
+    )
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    )
+    .limit(500);
+
+  if (error) {
+    console.error(
+      'getInbox error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load messages.'
+    );
+  }
+
+  const conversations =
+    new Map();
+
+  safeArray(data).forEach(
+    (message) => {
+      const personId =
+        message.sender_id === id
+          ? message.recipient_id
+          : message.sender_id;
+
+      if (
+        !conversations.has(
+          personId
+        )
+      ) {
+        conversations.set(
+          personId,
+          {
+            ...message,
+
+            content:
+              message.content ||
+              (message.message_type &&
+              message.message_type !== 'text'
+                ? '📎 Attachment'
+                : ''),
+
+            personId,
+
+            unreadCount:
+              0,
+          }
+        );
+      }
+
+      if (
+        message.recipient_id === id &&
+        !message.read_at
+      ) {
+        conversations.get(
+          personId
+        ).unreadCount += 1;
+      }
+    }
+  );
+
+  const personIds = [
+    ...conversations.keys(),
+  ];
+
+  if (!personIds.length) {
+    return [];
+  }
+
+  const {
+    data: profiles,
+    error: profileError,
+  } = await supabase
+    .from('profiles')
+    .select(
+      'id,full_name,avatar_url,role'
+    )
+    .in(
+      'id',
+      personIds
+    );
+
+  if (profileError) {
+    console.error(
+      'getInbox profiles error:',
+      profileError
+    );
+  }
+
+  const people =
+    Object.fromEntries(
+      safeArray(profiles).map(
+        (profile) => [
+          profile.id,
+          profile,
+        ]
+      )
+    );
+
+  // Map insertion order is newest conversation first.
+  return [
+    ...conversations.values(),
+  ].map(
+    (conversation) => ({
+      ...conversation,
+
+      person:
+        people[
+          conversation.personId
+        ] || null,
+    })
+  );
+}
+
+
+/*
+ * Full conversation between two users, oldest first.
+ */
+export async function getDirectMessages(
+  userId,
+  otherUserId
+) {
+  const me =
+    normalizeId(userId);
+
+  const other =
+    normalizeId(otherUserId);
+
+  if (
+    !me ||
+    !other
+  ) {
+    return [];
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('direct_messages')
+    .select(DIRECT_MESSAGE_SELECT)
+    .or(
+      `and(sender_id.eq.${me},recipient_id.eq.${other}),and(sender_id.eq.${other},recipient_id.eq.${me})`
+    )
+    .order(
+      'created_at',
+      {
+        ascending: true,
+      }
+    );
+
+  if (error) {
+    console.error(
+      'getDirectMessages error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load the conversation.'
+    );
+  }
+
+  return safeArray(data);
+}
+
+
+export async function sendDirectMessage(
+  recipientId,
+  content
+) {
+  const senderId =
+    await getCurrentUserId();
+
+  const recipient =
+    normalizeId(recipientId);
+
+  if (!senderId) {
+    throw new Error(
+      'Please log in first.'
+    );
+  }
+
+  if (!recipient) {
+    throw new Error(
+      'Missing recipient.'
+    );
+  }
+
+  if (
+    senderId === recipient
+  ) {
+    throw new Error(
+      'You cannot message yourself.'
+    );
+  }
+
+  const text =
+    String(
+      content || ''
+    ).trim();
+
+  if (!text) {
+    throw new Error(
+      'Message cannot be empty.'
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('direct_messages')
+    .insert({
+      sender_id:
+        senderId,
+
+      recipient_id:
+        recipient,
+
+      content:
+        text,
+    })
+    .select(DIRECT_MESSAGE_SELECT)
+    .single();
+
+  if (error) {
+    console.error(
+      'sendDirectMessage error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not send the message.'
+    );
+  }
+
+  return data;
+}
+
+
+/*
+ * Marks every unread message from otherUserId to userId as read.
+ */
+export async function markDirectMessagesRead(
+  userId,
+  otherUserId
+) {
+  const me =
+    normalizeId(userId);
+
+  const other =
+    normalizeId(otherUserId);
+
+  if (
+    !me ||
+    !other
+  ) {
+    return;
+  }
+
+  const {
+    error,
+  } = await supabase
+    .from('direct_messages')
+    .update({
+      read_at:
+        new Date().toISOString(),
+    })
+    .eq(
+      'sender_id',
+      other
+    )
+    .eq(
+      'recipient_id',
+      me
+    )
+    .is(
+      'read_at',
+      null
+    );
+
+  if (error) {
+    console.error(
+      'markDirectMessagesRead error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not mark messages as read.'
+    );
+  }
+}
