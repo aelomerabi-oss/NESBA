@@ -102,7 +102,8 @@ export default function CreateOrganization() {
     try {
       setSaving(true);
 
-      await createOrganization({
+      const organization =
+        await createOrganization({
         name: name.trim(),
         description: description.trim(),
         organizationType,
@@ -112,12 +113,14 @@ export default function CreateOrganization() {
 
       Alert.alert(
         'Organization created',
-        'Your organization has been created successfully.',
+        'Your organization has been created and is pending NESBA verification.',
         [
           {
             text: 'Continue',
             onPress: () => {
-              router.replace('/creator/organizations');
+              router.replace(
+                `/organization/${organization.id}`
+              );
             },
           },
         ]

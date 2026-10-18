@@ -3,41 +3,56 @@ import { View, Text, FlatList, StyleSheet, Pressable, Alert, ActivityIndicator, 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { colors, spacing, typography, radius } from '../../constants/theme';
-import { getEvents, isRegisteredForEvent, toggleEventRegistration } from '../../lib/nesba';
+import { getEvents, getMyEventRegistrations, toggleEventRegistration, startLiveRoom } from '../../lib/nesba';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LiveScreen() {
   const { session, user } = useAuth();
+  const userId = session?.user?.id;
   const [events, setEvents] = useState([]);
-  const [registered, setRegistered] = useState({});
+  const [registered, setRegistered] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [busyId, setBusyId] = useState(null);
 
   const load = useCallback(async () => {
     try {
-      const rows = await getEvents();
+      const [rows, registrations] = await Promise.all([getEvents(), getMyEventRegistrations(userId)]);
       setEvents(rows);
-      if (session?.user?.id) {
-        const registrations = await Promise.all(rows.map(async (event) => [event.id, await isRegisteredForEvent(event.id, session.user.id)]));
-        setRegistered(Object.fromEntries(registrations));
-      } else setRegistered({});
+      setRegistered(registrations);
     } catch (error) { Alert.alert('Could not load events', error.message); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [session?.user?.id]);
+  }, [userId]);
 
   useEffect(() => { load(); }, [load]);
 
   const register = async (event) => {
-    if (!session?.user?.id) return router.push('/login');
+    if (!userId) return router.push('/login');
     try {
-      const isRegistered = await toggleEventRegistration(event.id, session.user.id);
-      setRegistered((current) => ({ ...current, [event.id]: isRegistered }));
+      const isRegistered = await toggleEventRegistration(event.id, userId);
+      setRegistered((current) => {
+        const next = new Set(current);
+        if (isRegistered) next.add(event.id); else next.delete(event.id);
+        return next;
+      });
     } catch (error) { Alert.alert('Could not update registration', error.message); }
   };
 
+  const goLive = async (event) => {
+    try {
+      setBusyId(event.id);
+      const room = await startLiveRoom(event.id);
+      router.push(`/live/${room.id}`);
+      load();
+    } catch (error) { Alert.alert('Could not go live', error.message); }
+    finally { setBusyId(null); }
+  };
+
   const join = async (event) => {
-    if (!registered[event.id]) return Alert.alert('Registration required', 'Register before joining this session.');
-    if (!event.meeting_url) return Alert.alert('Link coming soon', 'The host has not added the meeting link yet.');
+    if (!userId) return router.push('/login');
+    if (event.liveRoom) return router.push(`/live/${event.liveRoom.id}`);
+    if (!registered.has(event.id)) return Alert.alert('Registration required', 'Register before joining this session.');
+    if (!event.meeting_url) return Alert.alert('Not live yet', 'The host has not started this session.');
     const supported = await Linking.canOpenURL(event.meeting_url);
     if (supported) Linking.openURL(event.meeting_url);
     else Alert.alert('Invalid meeting link', 'This event does not have a valid meeting link.');
@@ -46,22 +61,31 @@ export default function LiveScreen() {
   const renderEvent = ({ item }) => {
     const startsAt = new Date(item.starts_at);
     const isLive = item.status === 'live';
+    const isHost = !!userId && item.host_id === userId;
+    const isRegistered = registered.has(item.id);
+    const hostName = item.organizations?.name || item.host?.full_name || 'NESBA Creator';
     return <View style={styles.card}>
-      <View style={[styles.iconWrap, isLive && styles.iconWrapLive]}><Ionicons name={item.event_type === 'workshop' ? 'construct' : 'videocam'} size={22} color={isLive ? colors.accent : colors.primaryLight} /></View>
+      <View style={[styles.iconWrap, isLive && styles.iconWrapLive]}><Ionicons name={item.event_type === 'workshop' ? 'construct' : item.liveRoom ? 'mic' : 'videocam'} size={22} color={isLive ? colors.accent : colors.primaryLight} /></View>
       <View style={styles.cardContent}>
         <View style={styles.titleRow}><Text style={styles.eventTitle}>{item.title}</Text>{isLive && <View style={styles.liveTag}><Text style={styles.liveText}>LIVE</Text></View>}</View>
-        <Text style={styles.meta}>{startsAt.toLocaleString()} · {item.organizations?.name || 'NESBA Creator'}</Text>
+        <Text style={styles.meta}>{startsAt.toLocaleString()} · {hostName}</Text>
         {!!item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
         <View style={styles.actions}>
-          <Pressable style={[styles.registerButton, registered[item.id] && styles.registeredButton]} onPress={() => register(item)}><Text style={styles.registerText}>{registered[item.id] ? 'Registered' : 'Register'}</Text></Pressable>
-          {(isLive || registered[item.id]) && <Pressable style={styles.joinButton} onPress={() => join(item)}><Text style={styles.joinText}>Join</Text></Pressable>}
+          {isHost ? (
+            item.liveRoom
+              ? <Pressable style={styles.joinButton} onPress={() => router.push(`/live/${item.liveRoom.id}`)}><Text style={styles.joinText}>Open room</Text></Pressable>
+              : <Pressable style={styles.registerButton} disabled={busyId === item.id} onPress={() => goLive(item)}><Text style={styles.registerText}>{busyId === item.id ? 'Starting…' : 'Go live'}</Text></Pressable>
+          ) : <>
+            <Pressable style={[styles.registerButton, isRegistered && styles.registeredButton]} onPress={() => register(item)}><Text style={styles.registerText}>{isRegistered ? 'Registered' : 'Register'}</Text></Pressable>
+            {(isLive || isRegistered) && <Pressable style={styles.joinButton} onPress={() => join(item)}><Text style={styles.joinText}>{item.liveRoom ? 'Join live room' : 'Join'}</Text></Pressable>}
+          </>}
         </View>
       </View>
     </View>;
   };
 
   return <View style={styles.container}>
-    <View style={styles.headerRow}><View><Text style={styles.header}>Live & Events</Text><Text style={styles.subheader}>Learn together in real time.</Text></View>{['teacher', 'mentor', 'organization', 'admin'].includes(user.role) && <Pressable style={styles.createButton} onPress={() => router.push('/creator')}><Ionicons name="add" size={18} color="#fff" /></Pressable>}</View>
+    <View style={styles.headerRow}><View><Text style={styles.header}>Live & Events</Text><Text style={styles.subheader}>Learn together in real time.</Text></View>{['teacher', 'mentor', 'organization', 'admin'].includes(user.role) && <Pressable style={styles.createButton} onPress={() => router.push('/creator/events')}><Ionicons name="add" size={18} color="#fff" /></Pressable>}</View>
     {loading ? <View style={styles.center}><ActivityIndicator color={colors.primary} /></View> : <FlatList data={events} keyExtractor={(item) => item.id} renderItem={renderEvent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.primary} />} contentContainerStyle={events.length ? styles.list : styles.empty} ListEmptyComponent={<View><Ionicons name="calendar-outline" size={42} color={colors.textMuted} style={{ alignSelf: 'center' }} /><Text style={styles.emptyTitle}>No events scheduled</Text><Text style={styles.emptyText}>Check back soon for live classes, workshops, and webinars.</Text></View>} />}
   </View>;
 }

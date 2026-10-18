@@ -20,6 +20,8 @@ import {
   typography,
 } from '../../../constants/theme';
 
+import { createEvent } from '../../../lib/nesba';
+
 export default function CreatorEvents() {
   const [eventType, setEventType] =
     useState('live_class');
@@ -68,7 +70,7 @@ export default function CreatorEvents() {
     },
   ];
 
-  function scheduleEvent() {
+  async function scheduleEvent() {
     if (!title.trim()) {
       Alert.alert(
         'Required',
@@ -93,25 +95,57 @@ export default function CreatorEvents() {
       return;
     }
 
+    /*
+     * Date and time are entered in the device's local time zone.
+     */
+    const startsAt = new Date(
+      `${date.trim()}T${time.trim().padStart(5, '0')}`
+    );
+
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(date.trim()) ||
+      !/^\d{1,2}:\d{2}$/.test(time.trim()) ||
+      Number.isNaN(startsAt.getTime())
+    ) {
+      Alert.alert(
+        'Invalid date',
+        'Use the format YYYY-MM-DD for the date and HH:MM for the time.'
+      );
+      return;
+    }
+
     setSaving(true);
 
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      await createEvent({
+        title,
+        description,
+        eventType,
+        startsAt,
+        durationMinutes: duration,
+      });
 
       Alert.alert(
         'Event Scheduled',
-        'Your event has been scheduled successfully.',
+        'Your event is now listed in Live & Events. Open it there and tap "Go live" when you are ready to start.',
         [
           {
             text: 'OK',
             onPress: () =>
               router.push(
-                '/creator'
+                '/live'
               ),
           },
         ]
       );
-    }, 500);
+    } catch (error) {
+      Alert.alert(
+        'Could not schedule event',
+        error.message
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

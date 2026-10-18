@@ -369,19 +369,35 @@ export async function isFollowing(
 }
 
 
+/*
+ * Follows or unfollows a user (followingUserId) or an organization
+ * (followingOrganizationId). Returns true when now following.
+ */
 export async function toggleFollow({
   followerId,
   followingUserId,
+  followingOrganizationId,
 }) {
   const follower =
     normalizeId(
       followerId
     );
 
+  const organization =
+    normalizeId(
+      followingOrganizationId
+    );
+
   const followed =
+    organization ||
     normalizeId(
       followingUserId
     );
+
+  const column =
+    organization
+      ? 'followed_organization_id'
+      : 'followed_user_id';
 
   if (
     !follower ||
@@ -393,6 +409,7 @@ export async function toggleFollow({
   }
 
   if (
+    !organization &&
     follower === followed
   ) {
     throw new Error(
@@ -414,7 +431,7 @@ export async function toggleFollow({
       follower
     )
     .eq(
-      'followed_user_id',
+      column,
       followed
     )
     .maybeSingle();
@@ -449,7 +466,7 @@ export async function toggleFollow({
       follower_id:
         follower,
 
-      followed_user_id:
+      [column]:
         followed,
     });
 
@@ -2886,26 +2903,61 @@ export async function getTrendingCourses(
   limit = 10
 ) {
   /*
-   * Keep this resilient to the current database schema.
-   * Published courses are ordered by newest first.
-   * If enrollment statistics are available later,
-   * this function can rank by them without changing
-   * the Home screen API.
+   * Ranked by get_course_discovery_stats (recent and total
+   * enrollments plus ratings). Falls back to newest first
+   * if the ranking cannot be loaded.
    */
 
   const courses =
     await getCourses({
       limit: Math.max(
         limit,
-        20
+        50
       ),
       offset: 0,
     });
 
-  return courses.slice(
-    0,
-    limit
+  const {
+    data: ranking,
+    error,
+  } = await supabase.rpc(
+    'get_course_discovery_stats',
+    {
+      p_limit: 200,
+    }
   );
+
+  if (error) {
+    console.error(
+      'getTrendingCourses ranking error:',
+      error
+    );
+
+    return courses.slice(
+      0,
+      limit
+    );
+  }
+
+  const rank = new Map(
+    safeArray(ranking).map(
+      (row, index) => [
+        row.course_id,
+        index,
+      ]
+    )
+  );
+
+  return [...courses]
+    .sort(
+      (a, b) =>
+        (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    )
+    .slice(
+      0,
+      limit
+    );
 }
 
 
@@ -3089,6 +3141,52 @@ export async function updateCourseProgress({
     throw new Error(
       error.message ||
       'Could not update course progress.'
+    );
+  }
+
+  return data;
+}
+
+
+/*
+ * Marks a lesson complete for the signed-in learner.
+ *
+ * The database recomputes course progress and, at 100%,
+ * issues the certificate and any badges earned.
+ *
+ * Returns { progress_percent, course_completed, certificate_id }.
+ */
+export async function completeLesson(
+  moduleId
+) {
+  const id =
+    normalizeId(moduleId);
+
+  if (!id) {
+    throw new Error(
+      'Missing lesson ID.'
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase.rpc(
+    'mark_lesson_complete',
+    {
+      p_module_id: id,
+    }
+  );
+
+  if (error) {
+    console.error(
+      'completeLesson error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not save lesson progress.'
     );
   }
 
@@ -4737,4 +4835,1735 @@ export async function getPublicProfileShares(
   ) {
     return [];
   }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| EVENTS
+|--------------------------------------------------------------------------
+*/
+
+const EVENT_SELECT =
+  '*, organizations(name), host:profiles!events_host_id_fkey(full_name,avatar_url), live_audio_rooms(id,status)';
+
+/*
+ * Upcoming and live events, soonest first.
+ * Events that started more than a day ago and are not live are hidden.
+ */
+export async function getEvents({
+  limit = 50,
+} = {}) {
+  const since = new Date(
+    Date.now() - 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('events')
+    .select(EVENT_SELECT)
+    .in(
+      'status',
+      [
+        'scheduled',
+        'live',
+      ]
+    )
+    .or(
+      `status.eq.live,starts_at.gte."${since}"`
+    )
+    .order(
+      'starts_at',
+      {
+        ascending: true,
+      }
+    )
+    .limit(limit);
+
+  if (error) {
+    console.error(
+      'getEvents error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load events.'
+    );
+  }
+
+  return safeArray(data).map(
+    (event) => ({
+      ...event,
+
+      liveRoom:
+        safeArray(
+          event.live_audio_rooms
+        ).find(
+          (room) =>
+            room.status === 'live'
+        ) || null,
+    })
+  );
+}
+
+
+export async function createEvent({
+  title,
+  description = '',
+  eventType = 'live_class',
+  startsAt,
+  durationMinutes = 60,
+  meetingUrl = null,
+  capacity = null,
+}) {
+  const hostId =
+    await getCurrentUserId();
+
+  if (!hostId) {
+    throw new Error(
+      'Please log in to schedule an event.'
+    );
+  }
+
+  const start =
+    new Date(startsAt);
+
+  if (
+    Number.isNaN(
+      start.getTime()
+    )
+  ) {
+    throw new Error(
+      'Enter a valid date and time.'
+    );
+  }
+
+  const minutes =
+    Number(durationMinutes) || 60;
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('events')
+    .insert({
+      title:
+        title.trim(),
+
+      description:
+        description.trim() ||
+        null,
+
+      event_type:
+        eventType,
+
+      starts_at:
+        start.toISOString(),
+
+      ends_at:
+        new Date(
+          start.getTime() +
+          minutes * 60 * 1000
+        ).toISOString(),
+
+      meeting_url:
+        meetingUrl?.trim() ||
+        null,
+
+      capacity:
+        capacity
+          ? Number(capacity)
+          : null,
+
+      host_id:
+        hostId,
+
+      status:
+        'scheduled',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(
+      'createEvent error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not schedule the event.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function getMyEventRegistrations(
+  userId
+) {
+  const id =
+    normalizeId(userId);
+
+  if (!id) {
+    return new Set();
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('event_registrations')
+    .select('event_id')
+    .eq(
+      'user_id',
+      id
+    );
+
+  if (error) {
+    console.error(
+      'getMyEventRegistrations error:',
+      error
+    );
+
+    return new Set();
+  }
+
+  return new Set(
+    safeArray(data).map(
+      (row) => row.event_id
+    )
+  );
+}
+
+
+export async function isRegisteredForEvent(
+  eventId,
+  userId
+) {
+  const registrations =
+    await getMyEventRegistrations(
+      userId
+    );
+
+  return registrations.has(
+    normalizeId(eventId)
+  );
+}
+
+
+/*
+ * Registers or unregisters the user.
+ * Returns true when the user is now registered.
+ */
+export async function toggleEventRegistration(
+  eventId,
+  userId
+) {
+  const event =
+    normalizeId(eventId);
+
+  const user =
+    normalizeId(userId);
+
+  if (
+    !event ||
+    !user
+  ) {
+    throw new Error(
+      'Missing event or user.'
+    );
+  }
+
+  const {
+    data: existing,
+    error: lookupError,
+  } = await supabase
+    .from('event_registrations')
+    .select('id')
+    .eq(
+      'event_id',
+      event
+    )
+    .eq(
+      'user_id',
+      user
+    )
+    .maybeSingle();
+
+  if (lookupError) {
+    throw new Error(
+      lookupError.message
+    );
+  }
+
+  if (existing) {
+    const {
+      error,
+    } = await supabase
+      .from('event_registrations')
+      .delete()
+      .eq(
+        'id',
+        existing.id
+      );
+
+    if (error) {
+      throw new Error(
+        error.message
+      );
+    }
+
+    return false;
+  }
+
+  const {
+    error,
+  } = await supabase
+    .from('event_registrations')
+    .insert({
+      event_id:
+        event,
+
+      user_id:
+        user,
+    });
+
+  if (error) {
+    throw new Error(
+      error.message
+    );
+  }
+
+  return true;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LIVE AUDIO ROOMS
+|--------------------------------------------------------------------------
+|
+| Hosts start and end rooms; attendees join as listeners and the host can
+| promote them to speakers. Roles are enforced in the database, and the
+| livekit-token edge function only lets hosts and speakers publish audio.
+*/
+
+async function callLiveRpc(
+  name,
+  params,
+  fallbackMessage
+) {
+  const {
+    data,
+    error,
+  } = await supabase.rpc(
+    name,
+    params
+  );
+
+  if (error) {
+    console.error(
+      `${name} error:`,
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      fallbackMessage
+    );
+  }
+
+  return data;
+}
+
+
+export function startLiveRoom(
+  eventId
+) {
+  return callLiveRpc(
+    'start_live_room',
+    {
+      p_event_id:
+        normalizeId(eventId),
+    },
+    'Could not start the live session.'
+  );
+}
+
+
+export function joinLiveRoom(
+  roomId
+) {
+  return callLiveRpc(
+    'join_live_room',
+    {
+      p_room_id:
+        normalizeId(roomId),
+    },
+    'Could not join the live session.'
+  );
+}
+
+
+export function endLiveRoom(
+  roomId
+) {
+  return callLiveRpc(
+    'end_live_room',
+    {
+      p_room_id:
+        normalizeId(roomId),
+    },
+    'Could not end the live session.'
+  );
+}
+
+
+export function setLiveParticipantRole(
+  roomId,
+  userId,
+  role
+) {
+  return callLiveRpc(
+    'set_live_participant_role',
+    {
+      p_room_id:
+        normalizeId(roomId),
+
+      p_user_id:
+        normalizeId(userId),
+
+      p_role:
+        role,
+    },
+    'Could not change the participant role.'
+  );
+}
+
+
+export async function getLiveRoom(
+  roomId
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('live_audio_rooms')
+    .select(
+      '*, events(id,title,description,host_id)'
+    )
+    .eq(
+      'id',
+      normalizeId(roomId)
+    )
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not load the live room.'
+    );
+  }
+
+  return data;
+}
+
+
+/*
+ * People currently in the room (left_at is null), host first,
+ * then speakers, then raised hands, then listeners.
+ */
+export async function getLiveParticipants(
+  roomId
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('live_audio_participants')
+    .select(
+      'id,user_id,role,hand_raised,is_muted,joined_at,profiles(full_name,avatar_url)'
+    )
+    .eq(
+      'room_id',
+      normalizeId(roomId)
+    )
+    .is(
+      'left_at',
+      null
+    )
+    .order(
+      'joined_at',
+      {
+        ascending: true,
+      }
+    );
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not load participants.'
+    );
+  }
+
+  const rank = {
+    host: 0,
+    speaker: 1,
+    listener: 2,
+  };
+
+  return safeArray(data).sort(
+    (a, b) =>
+      (rank[a.role] ?? 3) -
+        (rank[b.role] ?? 3) ||
+      Number(b.hand_raised) -
+        Number(a.hand_raised)
+  );
+}
+
+
+export async function updateMyLiveParticipation(
+  roomId,
+  userId,
+  changes
+) {
+  const {
+    error,
+  } = await supabase
+    .from('live_audio_participants')
+    .update(changes)
+    .eq(
+      'room_id',
+      normalizeId(roomId)
+    )
+    .eq(
+      'user_id',
+      normalizeId(userId)
+    );
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not update your participation.'
+    );
+  }
+}
+
+
+export function leaveLiveRoom(
+  roomId,
+  userId
+) {
+  return updateMyLiveParticipation(
+    roomId,
+    userId,
+    {
+      left_at:
+        new Date().toISOString(),
+
+      hand_raised:
+        false,
+    }
+  );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| DIRECT MESSAGES
+|--------------------------------------------------------------------------
+*/
+
+const DIRECT_MESSAGE_SELECT =
+  'id,sender_id,recipient_id,content,created_at,read_at,message_type,media_url';
+
+/*
+ * One row per conversation partner: the latest message, the partner's
+ * profile (person) and how many of their messages are unread.
+ */
+export async function getInbox(
+  userId
+) {
+  const id =
+    normalizeId(userId);
+
+  if (!id) {
+    return [];
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('direct_messages')
+    .select(DIRECT_MESSAGE_SELECT)
+    .or(
+      `sender_id.eq.${id},recipient_id.eq.${id}`
+    )
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    )
+    .limit(500);
+
+  if (error) {
+    console.error(
+      'getInbox error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load messages.'
+    );
+  }
+
+  const conversations =
+    new Map();
+
+  safeArray(data).forEach(
+    (message) => {
+      const personId =
+        message.sender_id === id
+          ? message.recipient_id
+          : message.sender_id;
+
+      if (
+        !conversations.has(
+          personId
+        )
+      ) {
+        conversations.set(
+          personId,
+          {
+            ...message,
+
+            content:
+              message.content ||
+              (message.message_type &&
+              message.message_type !== 'text'
+                ? '📎 Attachment'
+                : ''),
+
+            personId,
+
+            unreadCount:
+              0,
+          }
+        );
+      }
+
+      if (
+        message.recipient_id === id &&
+        !message.read_at
+      ) {
+        conversations.get(
+          personId
+        ).unreadCount += 1;
+      }
+    }
+  );
+
+  const personIds = [
+    ...conversations.keys(),
+  ];
+
+  if (!personIds.length) {
+    return [];
+  }
+
+  const {
+    data: profiles,
+    error: profileError,
+  } = await supabase
+    .from('profiles')
+    .select(
+      'id,full_name,avatar_url,role'
+    )
+    .in(
+      'id',
+      personIds
+    );
+
+  if (profileError) {
+    console.error(
+      'getInbox profiles error:',
+      profileError
+    );
+  }
+
+  const people =
+    Object.fromEntries(
+      safeArray(profiles).map(
+        (profile) => [
+          profile.id,
+          profile,
+        ]
+      )
+    );
+
+  // Map insertion order is newest conversation first.
+  return [
+    ...conversations.values(),
+  ].map(
+    (conversation) => ({
+      ...conversation,
+
+      person:
+        people[
+          conversation.personId
+        ] || null,
+    })
+  );
+}
+
+
+/*
+ * Full conversation between two users, oldest first.
+ */
+export async function getDirectMessages(
+  userId,
+  otherUserId
+) {
+  const me =
+    normalizeId(userId);
+
+  const other =
+    normalizeId(otherUserId);
+
+  if (
+    !me ||
+    !other
+  ) {
+    return [];
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('direct_messages')
+    .select(DIRECT_MESSAGE_SELECT)
+    .or(
+      `and(sender_id.eq.${me},recipient_id.eq.${other}),and(sender_id.eq.${other},recipient_id.eq.${me})`
+    )
+    .order(
+      'created_at',
+      {
+        ascending: true,
+      }
+    );
+
+  if (error) {
+    console.error(
+      'getDirectMessages error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load the conversation.'
+    );
+  }
+
+  return safeArray(data);
+}
+
+
+export async function sendDirectMessage(
+  recipientId,
+  content
+) {
+  const senderId =
+    await getCurrentUserId();
+
+  const recipient =
+    normalizeId(recipientId);
+
+  if (!senderId) {
+    throw new Error(
+      'Please log in first.'
+    );
+  }
+
+  if (!recipient) {
+    throw new Error(
+      'Missing recipient.'
+    );
+  }
+
+  if (
+    senderId === recipient
+  ) {
+    throw new Error(
+      'You cannot message yourself.'
+    );
+  }
+
+  const text =
+    String(
+      content || ''
+    ).trim();
+
+  if (!text) {
+    throw new Error(
+      'Message cannot be empty.'
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('direct_messages')
+    .insert({
+      sender_id:
+        senderId,
+
+      recipient_id:
+        recipient,
+
+      content:
+        text,
+    })
+    .select(DIRECT_MESSAGE_SELECT)
+    .single();
+
+  if (error) {
+    console.error(
+      'sendDirectMessage error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not send the message.'
+    );
+  }
+
+  return data;
+}
+
+
+/*
+ * Marks every unread message from otherUserId to userId as read.
+ */
+export async function markDirectMessagesRead(
+  userId,
+  otherUserId
+) {
+  const me =
+    normalizeId(userId);
+
+  const other =
+    normalizeId(otherUserId);
+
+  if (
+    !me ||
+    !other
+  ) {
+    return;
+  }
+
+  const {
+    error,
+  } = await supabase
+    .from('direct_messages')
+    .update({
+      read_at:
+        new Date().toISOString(),
+    })
+    .eq(
+      'sender_id',
+      other
+    )
+    .eq(
+      'recipient_id',
+      me
+    )
+    .is(
+      'read_at',
+      null
+    );
+
+  if (error) {
+    console.error(
+      'markDirectMessagesRead error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not mark messages as read.'
+    );
+  }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| COURSE BUILDER
+|--------------------------------------------------------------------------
+|
+| Used by Creator Studio. A course has sections; each section has lessons
+| (course_modules); each lesson has content items (lesson_content).
+| Teachers can only write to courses where they are teacher_id (RLS).
+*/
+
+function courseBuilderError(
+  label,
+  error,
+  fallbackMessage
+) {
+  console.error(
+    `${label} error:`,
+    error
+  );
+
+  return new Error(
+    error?.message ||
+    fallbackMessage
+  );
+}
+
+
+export async function getCategories() {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('categories')
+    .select('id,name')
+    .order(
+      'name',
+      {
+        ascending: true,
+      }
+    );
+
+  if (error) {
+    throw courseBuilderError(
+      'getCategories',
+      error,
+      'Could not load categories.'
+    );
+  }
+
+  return safeArray(data);
+}
+
+
+/*
+ * Courses the user teaches, newest first, drafts included.
+ */
+export async function getMyCourses(
+  userId
+) {
+  const id =
+    normalizeId(userId);
+
+  if (!id) {
+    return [];
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('courses')
+    .select(
+      'id,title,description,thumbnail_url,difficulty,category_id,is_published,published_at,lesson_count,duration_minutes,created_at,updated_at'
+    )
+    .eq(
+      'teacher_id',
+      id
+    )
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    );
+
+  if (error) {
+    throw courseBuilderError(
+      'getMyCourses',
+      error,
+      'Could not load your courses.'
+    );
+  }
+
+  return safeArray(data);
+}
+
+
+export async function createCourse({
+  title,
+  description = '',
+  difficulty = 'beginner',
+  thumbnailUrl = null,
+  categoryId = null,
+  isPublished = false,
+  isPremium = false,
+}) {
+  const teacherId =
+    await getCurrentUserId();
+
+  if (!teacherId) {
+    throw new Error(
+      'Please log in before creating a course.'
+    );
+  }
+
+  if (
+    !String(
+      title || ''
+    ).trim()
+  ) {
+    throw new Error(
+      'Course title is required.'
+    );
+  }
+
+  const {
+    data: profile,
+  } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq(
+      'id',
+      teacherId
+    )
+    .maybeSingle();
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('courses')
+    .insert({
+      title:
+        title.trim(),
+
+      description:
+        description?.trim() ||
+        null,
+
+      difficulty,
+
+      thumbnail_url:
+        thumbnailUrl ||
+        null,
+
+      category_id:
+        categoryId ||
+        null,
+
+      teacher_id:
+        teacherId,
+
+      teacher_name:
+        profile?.full_name ||
+        null,
+
+      is_premium:
+        Boolean(
+          isPremium
+        ),
+
+      // The column defaults to true; drafts must be saved explicitly.
+      is_published:
+        Boolean(
+          isPublished
+        ),
+
+      published_at:
+        isPublished
+          ? new Date().toISOString()
+          : null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw courseBuilderError(
+      'createCourse',
+      error,
+      'Could not create the course.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function createCourseSection({
+  courseId,
+  title,
+  description = null,
+  sortOrder = 0,
+}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('course_sections')
+    .insert({
+      course_id:
+        normalizeId(courseId),
+
+      title:
+        String(
+          title || ''
+        ).trim() ||
+        'Untitled section',
+
+      description:
+        description ||
+        null,
+
+      sort_order:
+        Number(sortOrder) || 0,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw courseBuilderError(
+      'createCourseSection',
+      error,
+      'Could not create the section.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function createCourseLesson({
+  courseId,
+  sectionId = null,
+  title,
+  durationMinutes = 0,
+  sortOrder = 0,
+  isLocked = false,
+  videoUrl = null,
+}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('course_modules')
+    .insert({
+      course_id:
+        normalizeId(courseId),
+
+      section_id:
+        normalizeId(sectionId),
+
+      title:
+        String(
+          title || ''
+        ).trim() ||
+        'Untitled lesson',
+
+      duration_minutes:
+        Number(durationMinutes) || 0,
+
+      sort_order:
+        Number(sortOrder) || 0,
+
+      is_locked:
+        Boolean(
+          isLocked
+        ),
+
+      video_url:
+        videoUrl ||
+        null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw courseBuilderError(
+      'createCourseLesson',
+      error,
+      'Could not create the lesson.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function createLessonContent({
+  lessonId,
+  title,
+  description = null,
+  contentType = 'text',
+  provider = null,
+  contentUrl = null,
+  storagePath = null,
+  durationMinutes = null,
+  sortOrder = 1,
+  isRequired = true,
+  isPublished = false,
+}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('lesson_content')
+    .insert({
+      lesson_id:
+        normalizeId(lessonId),
+
+      title:
+        String(
+          title || ''
+        ).trim() ||
+        'Lesson content',
+
+      description:
+        description ||
+        null,
+
+      content_type:
+        contentType,
+
+      provider:
+        provider ||
+        null,
+
+      content_url:
+        contentUrl ||
+        null,
+
+      storage_path:
+        storagePath ||
+        null,
+
+      duration_minutes:
+        durationMinutes == null
+          ? null
+          : Number(durationMinutes) || 0,
+
+      sort_order:
+        Number(sortOrder) || 1,
+
+      is_required:
+        Boolean(
+          isRequired
+        ),
+
+      is_published:
+        Boolean(
+          isPublished
+        ),
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw courseBuilderError(
+      'createLessonContent',
+      error,
+      'Could not save the lesson content.'
+    );
+  }
+
+  return data;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ORGANIZATIONS
+|--------------------------------------------------------------------------
+|
+| New organizations start as 'pending'; only NESBA admins can verify them
+| (enforced in the database). The owner is added as an 'owner' member
+| automatically.
+*/
+
+function organizationSlug(
+  name
+) {
+  const base =
+    String(
+      name || ''
+    )
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(
+        /[^a-z0-9]+/g,
+        '-'
+      )
+      .replace(
+        /^-+|-+$/g,
+        ''
+      )
+      .slice(
+        0,
+        48
+      ) ||
+    'organization';
+
+  const suffix =
+    Math.random()
+      .toString(36)
+      .slice(
+        2,
+        8
+      );
+
+  return `${base}-${suffix}`;
+}
+
+
+export async function getOrganizations() {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('organizations')
+    .select(
+      'id,name,slug,description,logo_url,organization_type,location,verification_status,created_at'
+    )
+    .order(
+      'name',
+      {
+        ascending: true,
+      }
+    );
+
+  if (error) {
+    console.error(
+      'getOrganizations error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load organizations.'
+    );
+  }
+
+  // Verified organizations first.
+  return safeArray(data).sort(
+    (a, b) =>
+      Number(
+        b.verification_status === 'verified'
+      ) -
+      Number(
+        a.verification_status === 'verified'
+      )
+  );
+}
+
+
+export async function createOrganization({
+  name,
+  description = '',
+  organizationType = null,
+  website = null,
+  location = null,
+}) {
+  const ownerId =
+    await getCurrentUserId();
+
+  if (!ownerId) {
+    throw new Error(
+      'Please log in to create an organization.'
+    );
+  }
+
+  if (
+    !String(
+      name || ''
+    ).trim()
+  ) {
+    throw new Error(
+      'Organization name is required.'
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('organizations')
+    .insert({
+      owner_id:
+        ownerId,
+
+      name:
+        name.trim(),
+
+      slug:
+        organizationSlug(
+          name
+        ),
+
+      description:
+        description?.trim() ||
+        null,
+
+      organization_type:
+        organizationType ||
+        null,
+
+      website_url:
+        website ||
+        null,
+
+      location:
+        location ||
+        null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(
+      'createOrganization error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not create the organization.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function getOrganizationPosts(
+  organizationId,
+  {
+    limit = 30,
+  } = {}
+) {
+  const id =
+    normalizeId(organizationId);
+
+  if (!id) {
+    return [];
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('posts')
+    .select('*')
+    .eq(
+      'organization_id',
+      id
+    )
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    )
+    .limit(limit);
+
+  if (error) {
+    console.error(
+      'getOrganizationPosts error:',
+      error
+    );
+
+    return [];
+  }
+
+  return safeArray(data);
+}
+
+
+/*
+ * Number of followers of a user or, with { organization: true },
+ * of an organization.
+ */
+export async function getFollowerCount(
+  id,
+  {
+    organization = false,
+  } = {}
+) {
+  const target =
+    normalizeId(id);
+
+  if (!target) {
+    return 0;
+  }
+
+  const {
+    count,
+    error,
+  } = await supabase
+    .from('follows')
+    .select(
+      'id',
+      {
+        count: 'exact',
+        head: true,
+      }
+    )
+    .eq(
+      organization
+        ? 'followed_organization_id'
+        : 'followed_user_id',
+      target
+    );
+
+  if (error) {
+    console.error(
+      'getFollowerCount error:',
+      error
+    );
+
+    return 0;
+  }
+
+  return count || 0;
+}
+
+
+export async function getOrganizationStats(
+  organizationId
+) {
+  const id =
+    normalizeId(organizationId);
+
+  if (!id) {
+    return {
+      followers: 0,
+      courses: 0,
+      posts: 0,
+    };
+  }
+
+  const countRows = async (
+    table,
+    column,
+    extra = (query) => query
+  ) => {
+    const {
+      count,
+      error,
+    } = await extra(
+      supabase
+        .from(table)
+        .select(
+          'id',
+          {
+            count: 'exact',
+            head: true,
+          }
+        )
+        .eq(
+          column,
+          id
+        )
+    );
+
+    if (error) {
+      console.error(
+        `getOrganizationStats ${table} error:`,
+        error
+      );
+
+      return 0;
+    }
+
+    return count || 0;
+  };
+
+  const [
+    followers,
+    courses,
+    posts,
+  ] = await Promise.all([
+    getFollowerCount(
+      id,
+      {
+        organization: true,
+      }
+    ),
+
+    countRows(
+      'courses',
+      'organization_id',
+      (query) =>
+        query.eq(
+          'is_published',
+          true
+        )
+    ),
+
+    countRows(
+      'posts',
+      'organization_id'
+    ),
+  ]);
+
+  return {
+    followers,
+    courses,
+    posts,
+  };
+}
+
+
+/*
+ * The user's follow row for the organization ({ id, notifications_enabled })
+ * or null when not following.
+ */
+export async function isFollowingOrganization(
+  userId,
+  organizationId
+) {
+  const user =
+    normalizeId(userId);
+
+  const organization =
+    normalizeId(organizationId);
+
+  if (
+    !user ||
+    !organization
+  ) {
+    return null;
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('follows')
+    .select(
+      'id,notifications_enabled'
+    )
+    .eq(
+      'follower_id',
+      user
+    )
+    .eq(
+      'followed_organization_id',
+      organization
+    )
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      'isFollowingOrganization error:',
+      error
+    );
+
+    return null;
+  }
+
+  return data || null;
+}
+
+
+export async function setOrganizationFollowNotifications({
+  followerId,
+  organizationId,
+  enabled,
+}) {
+  const {
+    error,
+  } = await supabase
+    .from('follows')
+    .update({
+      notifications_enabled:
+        Boolean(
+          enabled
+        ),
+    })
+    .eq(
+      'follower_id',
+      normalizeId(followerId)
+    )
+    .eq(
+      'followed_organization_id',
+      normalizeId(organizationId)
+    );
+
+  if (error) {
+    console.error(
+      'setOrganizationFollowNotifications error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not update notifications.'
+    );
+  }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| MEDIA LIBRARY
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Published recordings and podcast episodes, newest first.
+ */
+export async function getMediaLibrary({
+  limit = 100,
+} = {}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('media_items')
+    .select(
+      'id,title,description,media_type,media_url,thumbnail_url,duration_seconds,creator_id,organization_id,published_at,created_at'
+    )
+    .eq(
+      'is_published',
+      true
+    )
+    .order(
+      'published_at',
+      {
+        ascending: false,
+        nullsFirst: false,
+      }
+    )
+    .limit(limit);
+
+  if (error) {
+    console.error(
+      'getMediaLibrary error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load the media library.'
+    );
+  }
+
+  return safeArray(data).filter(
+    (item) =>
+      item.media_url
+  );
 }

@@ -5,7 +5,7 @@ import { Link } from 'expo-router';
 import { colors, radius, spacing, typography } from '../constants/theme';
 import PremiumBadge from './PremiumBadge';
 
-export default function CourseCard({ course }) {
+export default function CourseCard({ course, stats }) {
   return (
     <Link href={`/course/${course.id}`} asChild>
       <Pressable style={styles.card}>
@@ -20,8 +20,28 @@ export default function CourseCard({ course }) {
           <Text style={styles.teacher}>{course.teacher}</Text>
           <View style={styles.metaRow}>
             <Ionicons name="play-circle-outline" size={14} color={colors.textMuted} />
-            <Text style={styles.meta}>{course.lessons} lessons Â· {course.duration}</Text>
+            <Text style={styles.meta}>
+              {course.lessons} lessons{course.duration ? ` · ${course.duration}` : ''}
+            </Text>
           </View>
+          {!!stats && (stats.enrollments > 0 || stats.rating != null) && (
+            <View style={[styles.metaRow, styles.statsRow]}>
+              {stats.rating != null && (
+                <>
+                  <Ionicons name="star" size={12} color={colors.premium} />
+                  <Text style={styles.meta}>{stats.rating.toFixed(1)}</Text>
+                </>
+              )}
+              {stats.enrollments > 0 && (
+                <>
+                  <Ionicons name="people-outline" size={12} color={colors.textMuted} />
+                  <Text style={styles.meta}>
+                    {stats.enrollments} {stats.enrollments === 1 ? 'learner' : 'learners'}
+                  </Text>
+                </>
+              )}
+            </View>
+          )}
         </View>
       </Pressable>
     </Link>
@@ -68,5 +88,8 @@ const styles = StyleSheet.create({
   meta: {
     ...typography.caption,
     fontSize: 11,
+  },
+  statsRow: {
+    marginTop: 4,
   },
 });

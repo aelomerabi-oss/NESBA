@@ -63,6 +63,13 @@ export default function RootLayout() {
             title: 'Live Audio',
           }}
         />
+
+        <Stack.Screen
+          name="live/[roomId]"
+          options={{
+            title: 'Live Session',
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

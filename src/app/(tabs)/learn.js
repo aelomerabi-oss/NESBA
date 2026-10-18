@@ -38,6 +38,7 @@ export default function LearningScreen() {
 
   const [courses, setCourses] = useState({});
   const [badgeDetails, setBadgeDetails] = useState({});
+  const [lockedBadges, setLockedBadges] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,6 +53,7 @@ export default function LearningScreen() {
       setBadges([]);
       setCourses({});
       setBadgeDetails({});
+      setLockedBadges([]);
       setLoading(false);
       setRefreshing(false);
       return;
@@ -251,6 +253,53 @@ export default function LearningScreen() {
 
       } else {
         setBadgeDetails({});
+      }
+
+
+      /*
+       * ---------------------------------------------------------------
+       * 7. BADGES STILL TO UNLOCK
+       * ---------------------------------------------------------------
+       *
+       * Course-completion badges are awarded automatically by the
+       * database when a course reaches 100%.
+       */
+
+      const {
+        data: activeBadges,
+        error: activeBadgesError,
+      } = await supabase
+        .from('badges')
+        .select('id,name,description,criteria')
+        .eq('is_active', true);
+
+      if (activeBadgesError) {
+        console.error(
+          'Active badge lookup error:',
+          activeBadgesError
+        );
+
+        setLockedBadges([]);
+      } else {
+        setLockedBadges(
+          (activeBadges || [])
+            .filter(
+              (badge) =>
+                badge?.criteria?.type ===
+                  'course_completion' &&
+                !badgeIds.includes(badge.id)
+            )
+            .map((badge) => ({
+              ...badge,
+              target: Math.max(
+                1,
+                Number(badge.criteria?.count) || 1
+              ),
+            }))
+            .sort(
+              (a, b) => a.target - b.target
+            )
+        );
       }
 
     } catch (error) {
@@ -873,6 +922,92 @@ export default function LearningScreen() {
 
       </View>
 
+
+      {lockedBadges.length > 0 && (
+
+        <Text style={styles.subsection}>
+          Badges to unlock
+        </Text>
+      )}
+
+
+      <View style={styles.badgeWrap}>
+
+        {lockedBadges.map((badge) => {
+
+          const done = Math.min(
+            certificates.length,
+            badge.target
+          );
+
+          return (
+
+            <View
+              key={badge.id}
+              style={[
+                styles.badge,
+                styles.badgeLocked,
+              ]}
+            >
+
+              <View
+                style={styles.badgeIcon}
+              >
+
+                <Text>
+                  🔒
+                </Text>
+
+              </View>
+
+
+              <View
+                style={styles.badgeInfo}
+              >
+
+                <Text
+                  style={styles.badgeName}
+                >
+                  {badge.name}
+                </Text>
+
+
+                <Text
+                  style={styles.badgeDescription}
+                >
+                  {done} of {badge.target}{' '}
+                  {badge.target === 1
+                    ? 'course'
+                    : 'courses'}{' '}
+                  completed
+                </Text>
+
+
+                <View
+                  style={styles.badgeTrack}
+                >
+
+                  <View
+                    style={[
+                      styles.badgeFill,
+                      {
+                        width: `${Math.round(
+                          (done / badge.target) * 100
+                        )}%`,
+                      },
+                    ]}
+                  />
+
+                </View>
+
+              </View>
+
+            </View>
+          );
+        })}
+
+      </View>
+
     </ScrollView>
   );
 }
@@ -1367,6 +1502,56 @@ const styles = StyleSheet.create({
 
     lineHeight:
       17,
+  },
+
+  badgeLocked: {
+    opacity:
+      0.85,
+  },
+
+  badgeTrack: {
+    height:
+      6,
+
+    borderRadius:
+      3,
+
+    backgroundColor:
+      colors.surfaceAlt,
+
+    marginTop:
+      spacing.xs,
+
+    overflow:
+      'hidden',
+  },
+
+  badgeFill: {
+    height:
+      '100%',
+
+    borderRadius:
+      3,
+
+    backgroundColor:
+      colors.primary,
+  },
+
+  subsection: {
+    color:
+      colors.textMuted,
+
+    fontWeight:
+      '700',
+
+    fontSize:
+      13,
+
+    marginTop:
+      spacing.md,
+
+    marginBottom:
+      spacing.sm,
   },
 
 });
