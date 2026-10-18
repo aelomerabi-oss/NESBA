@@ -1,4 +1,5 @@
 import React, {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -42,6 +43,7 @@ const colors = {
   background: '#F7F8FA',
   backgroundSoft: '#F1F3F8',
   surface: '#FFFFFF',
+  card: '#FFFFFF',
   primary: '#1769E0',
   primarySoft: '#EAF2FF',
   text: '#111827',
@@ -4426,15 +4428,11 @@ export default function HomeScreen() {
             }}
           >
 
-            <Avatar
-              uri={
-                profilePhoto
-              }
-              name={
-                profileName
-              }
-              size={36}
-            />
+            {Avatar({
+                uri: profilePhoto,
+                name: profileName,
+                size: 36,
+              })}
 
           </Pressable>
 
@@ -4691,15 +4689,11 @@ export default function HomeScreen() {
                           }}
                         >
 
-                          <Avatar
-                            uri={
-                              user.avatar_url
-                            }
-                            name={
-                              user.full_name
-                            }
-                            size={38}
-                          />
+                          {Avatar({
+                              uri: user.avatar_url,
+                              name: user.full_name,
+                              size: 38,
+                            })}
 
                           <View
                             style={
@@ -4788,15 +4782,11 @@ export default function HomeScreen() {
                             }}
                           >
 
-                            <Avatar
-                              uri={
-                                author.avatar
-                              }
-                              name={
-                                author.name
-                              }
-                              size={38}
-                            />
+                            {Avatar({
+                                uri: author.avatar,
+                                name: author.name,
+                                size: 38,
+                              })}
 
                             <View
                               style={
@@ -4931,15 +4921,11 @@ export default function HomeScreen() {
           }
         >
 
-          <Avatar
-            uri={
-              storyGroup.avatarUrl
-            }
-            name={
-              storyGroup.fullName
-            }
-            size={58}
-          />
+          {Avatar({
+              uri: storyGroup.avatarUrl,
+              name: storyGroup.fullName,
+              size: 58,
+            })}
 
         </View>
 
@@ -4988,15 +4974,11 @@ export default function HomeScreen() {
           }
         >
 
-          <Avatar
-            uri={
-              profilePhoto
-            }
-            name={
-              profileName
-            }
-            size={58}
-          />
+          {Avatar({
+              uri: profilePhoto,
+              name: profileName,
+              size: 58,
+            })}
 
           <View
             style={
@@ -5086,20 +5068,16 @@ export default function HomeScreen() {
           }
         >
 
-          <AddStoryCard />
+          {AddStoryCard()}
 
           {stories.map(
             storyGroup => (
 
-              <StoryCard
-                key={
-                  `story-${storyGroup.userId}`
-                }
-
-                storyGroup={
-                  storyGroup
-                }
-              />
+              <Fragment key={`story-${storyGroup.userId}`}>
+                {StoryCard({
+                  storyGroup: storyGroup,
+                })}
+              </Fragment>
 
             )
           )}
@@ -5134,15 +5112,11 @@ export default function HomeScreen() {
           }
         >
 
-          <Avatar
-            uri={
-              profilePhoto
-            }
-            name={
-              profileName
-            }
-            size={42}
-          />
+          {Avatar({
+              uri: profilePhoto,
+              name: profileName,
+              size: 42,
+            })}
 
           <View
             style={
@@ -5502,17 +5476,11 @@ export default function HomeScreen() {
               }
             >
 
-              <Avatar
-                uri={
-                  user.avatar_url
-                }
-
-                name={
-                  user.full_name
-                }
-
-                size={34}
-              />
+              {Avatar({
+                  uri: user.avatar_url,
+                  name: user.full_name,
+                  size: 34,
+                })}
 
               <Text
                 style={
@@ -5636,17 +5604,11 @@ export default function HomeScreen() {
                 }
               >
 
-                <Avatar
-                  uri={
-                    profilePhoto
-                  }
-
-                  name={
-                    profileName
-                  }
-
-                  size={44}
-                />
+                {Avatar({
+                    uri: profilePhoto,
+                    name: profileName,
+                    size: 44,
+                  })}
 
                 <View>
                   <Text
@@ -5700,7 +5662,7 @@ export default function HomeScreen() {
               />
 
 
-              <ComposerMediaPreview />
+              {ComposerMediaPreview()}
 
 
               {postLink.length > 0 && (
@@ -5751,9 +5713,9 @@ export default function HomeScreen() {
               )}
 
 
-              <PostEmojiPicker />
+              {PostEmojiPicker()}
 
-              <MentionPanel />
+              {MentionPanel()}
 
 
               <View
@@ -7179,17 +7141,11 @@ export default function HomeScreen() {
           }}
         >
 
-          <Avatar
-            uri={
-              author.avatar
-            }
-
-            name={
-              author.name
-            }
-
-            size={45}
-          />
+          {Avatar({
+              uri: author.avatar,
+              name: author.name,
+              size: 45,
+            })}
 
           <View
             style={
@@ -7500,21 +7456,13 @@ export default function HomeScreen() {
         ]}
       >
 
-        <Avatar
-          uri={
-            authorAvatar
-          }
-
-          name={
-            authorName
-          }
-
-          size={
-            isReply
+        {Avatar({
+            uri: authorAvatar,
+            name: authorName,
+            size: isReply
               ? 30
-              : 36
-          }
-        />
+              : 36,
+          })}
 
 
         <View
@@ -7717,15 +7665,10 @@ export default function HomeScreen() {
                   }
                 >
 
-                  <CommentItem
-                    comment={
-                      comment
-                    }
-
-                    postId={
-                      postId
-                    }
-                  />
+                  {CommentItem({
+                      comment: comment,
+                      postId: postId,
+                    })}
 
 
                   {replies
@@ -7741,21 +7684,13 @@ export default function HomeScreen() {
                     .map(
                       reply => (
 
-                        <CommentItem
-                          key={
-                            `reply-${reply.id}`
-                          }
-
-                          comment={
-                            reply
-                          }
-
-                          postId={
-                            postId
-                          }
-
-                          isReply
-                        />
+                        <Fragment key={`reply-${reply.id}`}>
+                          {CommentItem({
+                            comment: reply,
+                            postId: postId,
+                            isReply: true,
+                          })}
+                        </Fragment>
 
                       )
                     )}
@@ -7946,17 +7881,11 @@ export default function HomeScreen() {
           }
         >
 
-          <Avatar
-            uri={
-              profilePhoto
-            }
-
-            name={
-              profileName
-            }
-
-            size={34}
-          />
+          {Avatar({
+              uri: profilePhoto,
+              name: profileName,
+              size: 34,
+            })}
 
 
           <View
@@ -8324,11 +8253,9 @@ export default function HomeScreen() {
 
         {showingComments && (
 
-          <CommentsSection
-            post={
-              post
-            }
-          />
+          CommentsSection({
+              post: post,
+            })
 
         )}
 
@@ -8357,23 +8284,17 @@ export default function HomeScreen() {
         }
       >
 
-        <PostHeader
-          post={
-            post
-          }
-        />
+        {PostHeader({
+            post: post,
+          })}
 
-        <PostBody
-          post={
-            post
-          }
-        />
+        {PostBody({
+            post: post,
+          })}
 
-        <PostActions
-          post={
-            post
-          }
-        />
+        {PostActions({
+            post: post,
+          })}
 
       </View>
     );
@@ -8521,15 +8442,11 @@ export default function HomeScreen() {
             {posts.map(
               post => (
 
-                <PostCard
-                  key={
-                    `post-card-${post.id}`
-                  }
-
-                  post={
-                    post
-                  }
-                />
+                <Fragment key={`post-card-${post.id}`}>
+                  {PostCard({
+                    post: post,
+                  })}
+                </Fragment>
 
               )
             )}
@@ -8620,17 +8537,11 @@ export default function HomeScreen() {
                   }
                 >
 
-                  <Avatar
-                    uri={
-                      user.avatar_url
-                    }
-
-                    name={
-                      user.full_name
-                    }
-
-                    size={58}
-                  />
+                  {Avatar({
+                      uri: user.avatar_url,
+                      name: user.full_name,
+                      size: 58,
+                    })}
 
                 </Pressable>
 

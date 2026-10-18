@@ -1,3 +1,4 @@
+import '../lib/web-alert';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { colors } from '../constants/theme';
@@ -61,6 +62,13 @@ export default function RootLayout() {
           name="live-test"
           options={{
             title: 'Live Audio',
+          }}
+        />
+
+        <Stack.Screen
+          name="story/[id]"
+          options={{
+            headerShown: false,
           }}
         />
 
