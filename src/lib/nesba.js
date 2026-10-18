@@ -369,19 +369,35 @@ export async function isFollowing(
 }
 
 
+/*
+ * Follows or unfollows a user (followingUserId) or an organization
+ * (followingOrganizationId). Returns true when now following.
+ */
 export async function toggleFollow({
   followerId,
   followingUserId,
+  followingOrganizationId,
 }) {
   const follower =
     normalizeId(
       followerId
     );
 
+  const organization =
+    normalizeId(
+      followingOrganizationId
+    );
+
   const followed =
+    organization ||
     normalizeId(
       followingUserId
     );
+
+  const column =
+    organization
+      ? 'followed_organization_id'
+      : 'followed_user_id';
 
   if (
     !follower ||
@@ -393,6 +409,7 @@ export async function toggleFollow({
   }
 
   if (
+    !organization &&
     follower === followed
   ) {
     throw new Error(
@@ -414,7 +431,7 @@ export async function toggleFollow({
       follower
     )
     .eq(
-      'followed_user_id',
+      column,
       followed
     )
     .maybeSingle();
@@ -449,7 +466,7 @@ export async function toggleFollow({
       follower_id:
         follower,
 
-      followed_user_id:
+      [column]:
         followed,
     });
 
@@ -6064,4 +6081,489 @@ export async function createLessonContent({
   }
 
   return data;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ORGANIZATIONS
+|--------------------------------------------------------------------------
+|
+| New organizations start as 'pending'; only NESBA admins can verify them
+| (enforced in the database). The owner is added as an 'owner' member
+| automatically.
+*/
+
+function organizationSlug(
+  name
+) {
+  const base =
+    String(
+      name || ''
+    )
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(
+        /[^a-z0-9]+/g,
+        '-'
+      )
+      .replace(
+        /^-+|-+$/g,
+        ''
+      )
+      .slice(
+        0,
+        48
+      ) ||
+    'organization';
+
+  const suffix =
+    Math.random()
+      .toString(36)
+      .slice(
+        2,
+        8
+      );
+
+  return `${base}-${suffix}`;
+}
+
+
+export async function getOrganizations() {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('organizations')
+    .select(
+      'id,name,slug,description,logo_url,organization_type,location,verification_status,created_at'
+    )
+    .order(
+      'name',
+      {
+        ascending: true,
+      }
+    );
+
+  if (error) {
+    console.error(
+      'getOrganizations error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load organizations.'
+    );
+  }
+
+  // Verified organizations first.
+  return safeArray(data).sort(
+    (a, b) =>
+      Number(
+        b.verification_status === 'verified'
+      ) -
+      Number(
+        a.verification_status === 'verified'
+      )
+  );
+}
+
+
+export async function createOrganization({
+  name,
+  description = '',
+  organizationType = null,
+  website = null,
+  location = null,
+}) {
+  const ownerId =
+    await getCurrentUserId();
+
+  if (!ownerId) {
+    throw new Error(
+      'Please log in to create an organization.'
+    );
+  }
+
+  if (
+    !String(
+      name || ''
+    ).trim()
+  ) {
+    throw new Error(
+      'Organization name is required.'
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('organizations')
+    .insert({
+      owner_id:
+        ownerId,
+
+      name:
+        name.trim(),
+
+      slug:
+        organizationSlug(
+          name
+        ),
+
+      description:
+        description?.trim() ||
+        null,
+
+      organization_type:
+        organizationType ||
+        null,
+
+      website_url:
+        website ||
+        null,
+
+      location:
+        location ||
+        null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(
+      'createOrganization error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not create the organization.'
+    );
+  }
+
+  return data;
+}
+
+
+export async function getOrganizationPosts(
+  organizationId,
+  {
+    limit = 30,
+  } = {}
+) {
+  const id =
+    normalizeId(organizationId);
+
+  if (!id) {
+    return [];
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('posts')
+    .select('*')
+    .eq(
+      'organization_id',
+      id
+    )
+    .order(
+      'created_at',
+      {
+        ascending: false,
+      }
+    )
+    .limit(limit);
+
+  if (error) {
+    console.error(
+      'getOrganizationPosts error:',
+      error
+    );
+
+    return [];
+  }
+
+  return safeArray(data);
+}
+
+
+/*
+ * Number of followers of a user or, with { organization: true },
+ * of an organization.
+ */
+export async function getFollowerCount(
+  id,
+  {
+    organization = false,
+  } = {}
+) {
+  const target =
+    normalizeId(id);
+
+  if (!target) {
+    return 0;
+  }
+
+  const {
+    count,
+    error,
+  } = await supabase
+    .from('follows')
+    .select(
+      'id',
+      {
+        count: 'exact',
+        head: true,
+      }
+    )
+    .eq(
+      organization
+        ? 'followed_organization_id'
+        : 'followed_user_id',
+      target
+    );
+
+  if (error) {
+    console.error(
+      'getFollowerCount error:',
+      error
+    );
+
+    return 0;
+  }
+
+  return count || 0;
+}
+
+
+export async function getOrganizationStats(
+  organizationId
+) {
+  const id =
+    normalizeId(organizationId);
+
+  if (!id) {
+    return {
+      followers: 0,
+      courses: 0,
+      posts: 0,
+    };
+  }
+
+  const countRows = async (
+    table,
+    column,
+    extra = (query) => query
+  ) => {
+    const {
+      count,
+      error,
+    } = await extra(
+      supabase
+        .from(table)
+        .select(
+          'id',
+          {
+            count: 'exact',
+            head: true,
+          }
+        )
+        .eq(
+          column,
+          id
+        )
+    );
+
+    if (error) {
+      console.error(
+        `getOrganizationStats ${table} error:`,
+        error
+      );
+
+      return 0;
+    }
+
+    return count || 0;
+  };
+
+  const [
+    followers,
+    courses,
+    posts,
+  ] = await Promise.all([
+    getFollowerCount(
+      id,
+      {
+        organization: true,
+      }
+    ),
+
+    countRows(
+      'courses',
+      'organization_id',
+      (query) =>
+        query.eq(
+          'is_published',
+          true
+        )
+    ),
+
+    countRows(
+      'posts',
+      'organization_id'
+    ),
+  ]);
+
+  return {
+    followers,
+    courses,
+    posts,
+  };
+}
+
+
+/*
+ * The user's follow row for the organization ({ id, notifications_enabled })
+ * or null when not following.
+ */
+export async function isFollowingOrganization(
+  userId,
+  organizationId
+) {
+  const user =
+    normalizeId(userId);
+
+  const organization =
+    normalizeId(organizationId);
+
+  if (
+    !user ||
+    !organization
+  ) {
+    return null;
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('follows')
+    .select(
+      'id,notifications_enabled'
+    )
+    .eq(
+      'follower_id',
+      user
+    )
+    .eq(
+      'followed_organization_id',
+      organization
+    )
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      'isFollowingOrganization error:',
+      error
+    );
+
+    return null;
+  }
+
+  return data || null;
+}
+
+
+export async function setOrganizationFollowNotifications({
+  followerId,
+  organizationId,
+  enabled,
+}) {
+  const {
+    error,
+  } = await supabase
+    .from('follows')
+    .update({
+      notifications_enabled:
+        Boolean(
+          enabled
+        ),
+    })
+    .eq(
+      'follower_id',
+      normalizeId(followerId)
+    )
+    .eq(
+      'followed_organization_id',
+      normalizeId(organizationId)
+    );
+
+  if (error) {
+    console.error(
+      'setOrganizationFollowNotifications error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not update notifications.'
+    );
+  }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| MEDIA LIBRARY
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Published recordings and podcast episodes, newest first.
+ */
+export async function getMediaLibrary({
+  limit = 100,
+} = {}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('media_items')
+    .select(
+      'id,title,description,media_type,media_url,thumbnail_url,duration_seconds,creator_id,organization_id,published_at,created_at'
+    )
+    .eq(
+      'is_published',
+      true
+    )
+    .order(
+      'published_at',
+      {
+        ascending: false,
+        nullsFirst: false,
+      }
+    )
+    .limit(limit);
+
+  if (error) {
+    console.error(
+      'getMediaLibrary error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not load the media library.'
+    );
+  }
+
+  return safeArray(data).filter(
+    (item) =>
+      item.media_url
+  );
 }
