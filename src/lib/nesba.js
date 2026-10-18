@@ -1282,85 +1282,71 @@ export async function createPostWithMentions({
     return post;
   }
 
+  /*
+   * Resolve @names to profiles, then notify them through
+   * notify_post_mentions (notifications have no client INSERT policy).
+   */
+  const mentionedIds =
+    new Set();
+
   for (
     const username of mentions
   ) {
-    try {
-      const {
-        data: users,
-        error,
-      } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          avatar_url
-        `)
-        .ilike(
-          'full_name',
-          `%${username}%`
-        )
-        .limit(5);
+    const {
+      data: users,
+      error,
+    } = await supabase
+      .from('profiles')
+      .select('id')
+      .ilike(
+        'full_name',
+        `%${username.replace(/[%_]/g, '')}%`
+      )
+      .limit(5);
 
-      if (error) {
-        console.error(
-          'Mention lookup error:',
-          error
-        );
+    if (error) {
+      console.error(
+        'Mention lookup error:',
+        error
+      );
 
-        continue;
-      }
+      continue;
+    }
 
-      for (
-        const mentionedUser
-        of safeArray(users)
-      ) {
+    safeArray(users).forEach(
+      (mentionedUser) => {
         if (
-          String(
+          String(mentionedUser.id) !==
+          String(userId)
+        ) {
+          mentionedIds.add(
             mentionedUser.id
-          ) ===
-          String(
-            userId
-          )
-        ) {
-          continue;
-        }
-
-        try {
-          await createNotification({
-            userId:
-              mentionedUser.id,
-
-            actorId:
-              userId,
-
-            type:
-              'mention',
-
-            title:
-              'You were mentioned',
-
-            message:
-              'You were mentioned in a post.',
-
-            entityId:
-              post.id,
-          });
-        } catch (
-          notificationError
-        ) {
-          console.error(
-            'Mention notification error:',
-            notificationError
           );
         }
       }
-    } catch (
-      mentionError
-    ) {
+    );
+  }
+
+  if (mentionedIds.size) {
+    const {
+      error: notificationError,
+    } = await supabase.rpc(
+      'notify_post_mentions',
+      {
+        p_post_id:
+          post.id,
+
+        p_user_ids: [
+          ...mentionedIds,
+        ],
+      }
+    );
+
+    // Notifications should not break posting.
+    if (notificationError) {
       console.error(
-        'Mention processing error:',
-        mentionError
+        'Mention notification error:',
+        notificationError
       );
     }
   }
@@ -2364,11 +2350,6 @@ export async function createNotification({
     user_id:
       recipient,
 
-    actor_id:
-      normalizeId(
-        actorId
-      ),
-
     type:
       type ||
       'general',
@@ -2377,17 +2358,21 @@ export async function createNotification({
       title ||
       'NESBA',
 
-    message:
+    body:
       message ||
       null,
 
-    entity_id:
-      normalizeId(
-        entityId
-      ),
+    data: {
+      actor_id:
+        normalizeId(
+          actorId
+        ),
 
-    is_read:
-      false,
+      entity_id:
+        normalizeId(
+          entityId
+        ),
+    },
   };
 
   const {
@@ -3219,7 +3204,8 @@ export async function getUserBadges(
       id,
       user_id,
       badge_id,
-      earned_at,
+      earned_at:awarded_at,
+      awarded_at,
       badges (
         id,
         name,
@@ -3232,7 +3218,7 @@ export async function getUserBadges(
       id
     )
     .order(
-      'earned_at',
+      'awarded_at',
       {
         ascending:
           false,
@@ -3277,11 +3263,12 @@ export async function getUserCertificates(
       id,
       user_id,
       course_id,
-      certificate_url,
+      certificate_id,
       issued_at,
       courses (
         id,
-        title
+        title,
+        teacher_name
       )
     `)
     .eq(
@@ -3734,12 +3721,12 @@ export async function getNotifications(
     .select(`
       id,
       user_id,
-      actor_id,
       type,
       title,
-      message,
-      entity_id,
-      is_read,
+      message:body,
+      body,
+      data,
+      read_at,
       created_at
     `)
     .eq(
@@ -3785,8 +3772,8 @@ export async function markNotificationRead(
   } = await supabase
     .from('notifications')
     .update({
-      is_read:
-        true,
+      read_at:
+        new Date().toISOString(),
     })
     .eq(
       'id',
@@ -4729,11 +4716,18 @@ export async function getPublicProfileAudio(
       data,
       error,
     } = await supabase
-      .from('audio')
+      .from('media_items')
       .select('*')
       .eq(
-        'user_id',
+        'creator_id',
         normalizeId(userId)
+      )
+      .in(
+        'media_type',
+        [
+          'podcast_episode',
+          'audio_lesson',
+        ]
       )
       .order(
         'created_at',
@@ -4768,11 +4762,15 @@ export async function getPublicProfileLectures(
       data,
       error,
     } = await supabase
-      .from('lectures')
+      .from('media_items')
       .select('*')
       .eq(
         'creator_id',
         normalizeId(userId)
+      )
+      .eq(
+        'media_type',
+        'recording'
       )
       .order(
         'created_at',
@@ -6566,4 +6564,77 @@ export async function getMediaLibrary({
     (item) =>
       item.media_url
   );
+}
+
+
+/*
+ * Publishes a media item (recording, podcast episode or audio lesson)
+ * for the signed-in creator.
+ */
+export async function createMediaItem({
+  title,
+  description = null,
+  mediaType,
+  mediaUrl,
+  isPublished = true,
+}) {
+  const creatorId =
+    await getCurrentUserId();
+
+  if (!creatorId) {
+    throw new Error(
+      'Please log in to publish media.'
+    );
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('media_items')
+    .insert({
+      title:
+        String(
+          title || ''
+        ).trim(),
+
+      description:
+        description?.trim() ||
+        null,
+
+      media_type:
+        mediaType,
+
+      media_url:
+        mediaUrl,
+
+      creator_id:
+        creatorId,
+
+      is_published:
+        Boolean(
+          isPublished
+        ),
+
+      published_at:
+        isPublished
+          ? new Date().toISOString()
+          : null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(
+      'createMediaItem error:',
+      error
+    );
+
+    throw new Error(
+      error.message ||
+      'Could not publish the media.'
+    );
+  }
+
+  return data;
 }

@@ -194,3 +194,83 @@ export async function uploadLessonFile({
       file.size,
   };
 }
+/**
+ * Upload a creator media recording (podcast episode, audio lesson,
+ * recorded class) to the lesson-files bucket.
+ *
+ * Storage path:
+ *
+ * userId/media/timestamp-filename
+ */
+export async function uploadMediaFile({
+  userId,
+  file,
+}) {
+  if (!userId) {
+    throw new Error(
+      'User is not authenticated.'
+    );
+  }
+
+  if (!file?.uri) {
+    throw new Error(
+      'No file was selected.'
+    );
+  }
+
+  const safeName =
+    file.name
+      .replace(
+        /[^a-zA-Z0-9._-]/g,
+        '_'
+      );
+
+  const storagePath =
+    `${userId}/media/${Date.now()}-${safeName}`;
+
+  const response =
+    await fetch(file.uri);
+
+  if (!response.ok) {
+    throw new Error(
+      `Could not read selected file (${response.status}).`
+    );
+  }
+
+  const blob =
+    await response.blob();
+
+  const { error } =
+    await supabase.storage
+      .from('lesson-files')
+      .upload(
+        storagePath,
+        blob,
+        {
+          contentType:
+            file.mimeType ||
+            'application/octet-stream',
+          upsert: false,
+        }
+      );
+
+  if (error) {
+    throw error;
+  }
+
+  const {
+    data: publicUrlData,
+  } =
+    supabase.storage
+      .from('lesson-files')
+      .getPublicUrl(
+        storagePath
+      );
+
+  return {
+    storagePath,
+    publicUrl:
+      publicUrlData?.publicUrl ||
+      null,
+  };
+}
