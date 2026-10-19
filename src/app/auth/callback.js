@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
+import { takeReturnTo } from '../../lib/return-to';
 import { colors, spacing, typography } from '../../constants/theme';
 import { completeAuthFromUrl } from '../../lib/social-auth';
 
@@ -33,7 +34,7 @@ export default function AuthCallbackScreen() {
 
     completeAuthFromUrl(url)
       .then((session) => {
-        router.replace(session ? '/(tabs)' : '/login');
+        router.replace(session ? takeReturnTo() || '/(tabs)' : '/login');
       })
       .catch((error) => setMessage(error.message || 'Sign in failed.'));
   }, [linkedUrl]);

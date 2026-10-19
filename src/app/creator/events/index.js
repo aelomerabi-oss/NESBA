@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   Alert,
@@ -21,6 +21,9 @@ import {
 } from '../../../constants/theme';
 
 import { createEvent } from '../../../lib/nesba';
+import { useAuth } from '../../../context/AuthContext';
+import { canReceivePayments, formatPrice, parsePrice, PLATFORM_FEE_PERCENT } from '../../../lib/payments';
+import { MIN_TICKET_CENTS } from '../../../lib/workshops';
 
 export default function CreatorEvents() {
   const [eventType, setEventType] =
@@ -39,6 +42,19 @@ export default function CreatorEvents() {
   const [saving, setSaving] =
     useState(false);
 
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+
+  const [price, setPrice] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [canSell, setCanSell] = useState(false);
+
+  useEffect(() => {
+    if (userId) canReceivePayments(userId).then(setCanSell);
+  }, [userId]);
+
+  const priceCents = parsePrice(price);
+
   const eventTypes = [
     {
       id: 'live_class',
@@ -53,6 +69,13 @@ export default function CreatorEvents() {
       description:
         'Interactive educational workshop.',
       icon: 'people-outline',
+    },
+    {
+      id: 'masterclass',
+      title: 'Masterclass',
+      description:
+        'A one-off session where an expert shares their know-how.',
+      icon: 'school-outline',
     },
     {
       id: 'webinar',
@@ -114,30 +137,37 @@ export default function CreatorEvents() {
       return;
     }
 
+    if (priceCents === null || (priceCents > 0 && priceCents < MIN_TICKET_CENTS)) {
+      Alert.alert(
+        'Invalid price',
+        'Enter a ticket price like 25 or 19.99 (at least €1), or leave it empty for a free event.'
+      );
+      return;
+    }
+
+    if (capacity.trim() && !(Number(capacity) > 0)) {
+      Alert.alert(
+        'Invalid number of seats',
+        'Enter how many people can join, or leave it empty for no limit.'
+      );
+      return;
+    }
+
     setSaving(true);
 
     try {
-      await createEvent({
+      const event = await createEvent({
         title,
         description,
         eventType,
         startsAt,
         durationMinutes: duration,
+        capacity: capacity.trim() || null,
+        priceCents,
       });
 
-      Alert.alert(
-        'Event Scheduled',
-        'Your event is now listed in Live & Events. Open it there and tap "Go live" when you are ready to start.',
-        [
-          {
-            text: 'OK',
-            onPress: () =>
-              router.push(
-                '/live'
-              ),
-          },
-        ]
-      );
+      // The event page has the link to share and the Go live button.
+      router.replace(`/event/${event.id}`);
     } catch (error) {
       Alert.alert(
         'Could not schedule event',
@@ -346,6 +376,68 @@ export default function CreatorEvents() {
             colors.textMuted
           }
         />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>
+          Tickets
+        </Text>
+
+        <FieldLabel
+          label="Ticket price (€)"
+        />
+
+        <TextInput
+          value={price}
+          onChangeText={setPrice}
+          editable={canSell}
+          style={[
+            styles.input,
+            !canSell && styles.disabled,
+          ]}
+          keyboardType="decimal-pad"
+          placeholder="Leave empty for a free event"
+          placeholderTextColor={
+            colors.textMuted
+          }
+        />
+
+        {canSell ? (
+          priceCents > 0 ? (
+            <Text style={styles.hint}>
+              You receive {formatPrice(Math.round(priceCents * (100 - PLATFORM_FEE_PERCENT) / 100))} per ticket; NESBA keeps {PLATFORM_FEE_PERCENT}%.
+            </Text>
+          ) : null
+        ) : (
+          <Pressable
+            onPress={() =>
+              router.push('/creator/payouts')
+            }
+          >
+            <Text style={styles.hintLink}>
+              To sell tickets, first connect your payout account in Creator Studio › Payouts.
+            </Text>
+          </Pressable>
+        )}
+
+        <FieldLabel
+          label="Number of seats"
+        />
+
+        <TextInput
+          value={capacity}
+          onChangeText={setCapacity}
+          style={styles.input}
+          keyboardType="numeric"
+          placeholder="Leave empty for no limit"
+          placeholderTextColor={
+            colors.textMuted
+          }
+        />
+
+        <Text style={styles.hint}>
+          After scheduling you get a link to share on Instagram, LinkedIn or WhatsApp. People sign up and pay there.
+        </Text>
       </View>
 
       <View style={styles.card}>
@@ -697,5 +789,22 @@ const styles = StyleSheet.create({
 
   disabled: {
     opacity: 0.6,
+  },
+
+  hint: {
+    color:
+      colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: spacing.xs,
+  },
+
+  hintLink: {
+    color:
+      colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 18,
+    marginTop: spacing.xs,
   },
 });

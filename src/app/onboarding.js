@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { takeReturnTo } from '../lib/return-to';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -165,7 +166,7 @@ export default function OnboardingScreen() {
       return;
     }
 
-    router.replace('/(tabs)');
+    router.replace(takeReturnTo() || '/(tabs)');
   };
 
   return (

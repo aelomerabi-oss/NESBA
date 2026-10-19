@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { router } from 'expo-router';
+import { takeReturnTo } from '../lib/return-to';
 import * as Linking from 'expo-linking';
 
 import {
@@ -174,7 +175,7 @@ export default function LoginScreen() {
         'LOGIN SUCCESS'
       );
 
-      router.replace('/(tabs)');
+      router.replace(takeReturnTo() || '/(tabs)');
 
     } catch (error) {
       console.error(

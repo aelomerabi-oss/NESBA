@@ -5,6 +5,7 @@
  *   checkout.session.completed / async_payment_succeeded
  *       course   -> purchase "paid" and the buyer is enrolled
  *       tutoring -> booking "confirmed" and a private session is scheduled
+ *       event    -> ticket "paid" and the buyer is registered for the workshop
  *   checkout.session.expired / async_payment_failed
  *       the pending purchase/booking is marked "expired"
  *   charge.refunded -> purchase "refunded" / booking "cancelled"
@@ -97,13 +98,42 @@ async function completeBooking(db: Db, bookingId: string, paymentIntent: string 
     { booking_id: booking.id, event_id: event.id });
 }
 
+async function completeTicket(db: Db, ticketId: string, paymentIntent: string | null) {
+  const { data: ticket } = await db
+    .from("event_ticket_purchases")
+    .update({ status: "paid", paid_at: new Date().toISOString(), stripe_payment_intent_id: paymentIntent })
+    .eq("id", ticketId)
+    .eq("status", "pending")
+    .select("*, event:events(title,starts_at)")
+    .maybeSingle();
+
+  if (!ticket) return;
+
+  // Registered seats are what let the buyer into the live room.
+  const { error } = await db
+    .from("event_registrations")
+    .insert({ event_id: ticket.event_id, user_id: ticket.buyer_id });
+
+  if (error && error.code !== "23505") throw error;
+
+  const title = ticket.event?.title || "your workshop";
+
+  await notify(db, ticket.seller_id, "ticket_sale", "New ticket sold",
+    `Someone bought a ticket for ${title}.`, { event_id: ticket.event_id });
+
+  await notify(db, ticket.buyer_id, "ticket_purchase", "You're in!",
+    `Your ticket for ${title} is confirmed. Join from Live when the host starts.`, { event_id: ticket.event_id });
+}
+
 async function expire(db: Db, session: Stripe.Checkout.Session) {
-  const { kind, purchase_id, booking_id } = session.metadata || {};
+  const { kind, purchase_id, booking_id, ticket_id } = session.metadata || {};
 
   if (kind === "course" && purchase_id) {
     await db.from("course_purchases").update({ status: "expired" }).eq("id", purchase_id).eq("status", "pending");
   } else if (kind === "tutoring" && booking_id) {
     await db.from("tutoring_bookings").update({ status: "expired" }).eq("id", booking_id).eq("status", "pending_payment");
+  } else if (kind === "event" && ticket_id) {
+    await db.from("event_ticket_purchases").update({ status: "expired" }).eq("id", ticket_id).eq("status", "pending");
   }
 }
 
@@ -113,6 +143,17 @@ async function refund(db: Db, charge: Stripe.Charge) {
 
   await db.from("course_purchases").update({ status: "refunded" }).eq("stripe_payment_intent_id", paymentIntent);
   await db.from("tutoring_bookings").update({ status: "cancelled" }).eq("stripe_payment_intent_id", paymentIntent);
+
+  // A refunded ticket gives up its seat.
+  const { data: tickets } = await db
+    .from("event_ticket_purchases")
+    .update({ status: "refunded" })
+    .eq("stripe_payment_intent_id", paymentIntent)
+    .select("event_id,buyer_id");
+
+  for (const t of tickets || []) {
+    await db.from("event_registrations").delete().eq("event_id", t.event_id).eq("user_id", t.buyer_id);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -153,10 +194,11 @@ Deno.serve(async (req) => {
         if (session.payment_status !== "paid") break;
 
         const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : null;
-        const { kind, purchase_id, booking_id } = session.metadata || {};
+        const { kind, purchase_id, booking_id, ticket_id } = session.metadata || {};
 
         if (kind === "course" && purchase_id) await completeCourse(db, purchase_id, paymentIntent);
         if (kind === "tutoring" && booking_id) await completeBooking(db, booking_id, paymentIntent);
+        if (kind === "event" && ticket_id) await completeTicket(db, ticket_id, paymentIntent);
         break;
       }
 

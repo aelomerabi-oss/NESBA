@@ -4,6 +4,7 @@
  * Body:
  *   { kind: "course", courseId, couponCode?, returnOrigin }
  *   { kind: "tutoring", offerId, startsAt, note, returnOrigin }
+ *   { kind: "event", eventId, returnOrigin }   (paid workshop ticket)
  *
  * Prices always come from the database, never from the request. A pending
  * purchase/booking row is stored first; stripe-webhook completes it.
@@ -252,6 +253,89 @@ Deno.serve(async (req) => {
         .from("tutoring_bookings")
         .update({ stripe_checkout_session_id: session.id })
         .eq("id", booking.id);
+
+      return json({ url: session.url });
+    }
+
+    if (body.kind === "event") {
+      const { data: event } = await db
+        .from("events")
+        .select("id,title,host_id,starts_at,status,capacity,is_private,price_cents,currency")
+        .eq("id", body.eventId)
+        .maybeSingle();
+
+      if (!event || event.is_private || !["scheduled", "live"].includes(event.status)) {
+        return json({ error: "This workshop is no longer available." }, 404);
+      }
+      if (!(event.price_cents > 0)) return json({ error: "This workshop is free." }, 400);
+      if (event.host_id === user.id) return json({ error: "You are hosting this workshop." }, 400);
+
+      const { data: registered } = await db
+        .from("event_registrations")
+        .select("id")
+        .eq("event_id", event.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (registered) return json({ error: "You already have a ticket." }, 400);
+
+      if (event.capacity) {
+        const { count } = await db
+          .from("event_registrations")
+          .select("id", { count: "exact", head: true })
+          .eq("event_id", event.id);
+
+        if ((count || 0) >= event.capacity) return json({ error: "This workshop is sold out." }, 409);
+      }
+
+      const destination = await payoutAccount(db, event.host_id);
+      if (!destination) return json({ error: "Tickets cannot be bought right now. The host has not finished setting up payments." }, 409);
+
+      const fee = platformFee(event.price_cents);
+
+      const { data: ticket, error } = await db
+        .from("event_ticket_purchases")
+        .insert({
+          event_id: event.id,
+          buyer_id: user.id,
+          seller_id: event.host_id,
+          amount_cents: event.price_cents,
+          platform_fee_cents: fee,
+          currency: event.currency,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: user.email,
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency: event.currency,
+            unit_amount: event.price_cents,
+            product_data: {
+              name: `Ticket: ${event.title}`,
+              description: new Date(event.starts_at).toUTCString(),
+            },
+          },
+        }],
+        payment_intent_data: {
+          application_fee_amount: fee,
+          transfer_data: { destination },
+          metadata: { kind: "event", ticket_id: ticket.id },
+        },
+        metadata: { kind: "event", ticket_id: ticket.id },
+        success_url: `${origin}/event/${event.id}?paid=1`,
+        cancel_url: `${origin}/event/${event.id}`,
+      });
+
+      await db
+        .from("event_ticket_purchases")
+        .update({ stripe_checkout_session_id: session.id })
+        .eq("id", ticket.id);
 
       return json({ url: session.url });
     }

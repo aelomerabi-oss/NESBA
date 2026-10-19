@@ -6,7 +6,9 @@ import { colors, spacing, typography, radius } from '../../constants/theme';
 import { getEvents, getMyEventRegistrations, toggleEventRegistration, startLiveRoom } from '../../lib/nesba';
 import { useAuth } from '../../context/AuthContext';
 import { addToCalendar } from '../../lib/calendar';
-import { SITE_URL } from '../../lib/payments';
+import { formatPrice } from '../../lib/payments';
+import { eventLink } from '../../lib/workshops';
+import { shareLink } from '../../lib/share-link';
 
 const ONE_HOUR = 60 * 60 * 1000;
 
@@ -16,7 +18,7 @@ const saveToCalendar = (event) =>
     startsAt: event.starts_at,
     endsAt: event.ends_at || new Date(new Date(event.starts_at).getTime() + ONE_HOUR).toISOString(),
     notes: event.description,
-    url: `${SITE_URL}/live`,
+    url: eventLink(event.id),
   }).catch((error) => Alert.alert('Could not add to calendar', error.message));
 
 export default function LiveScreen() {
@@ -40,7 +42,8 @@ export default function LiveScreen() {
   useEffect(() => { load(); }, [load]);
 
   const register = async (event) => {
-    if (!userId) return router.push('/login');
+    // Paid tickets are bought on the workshop page.
+    if (event.price_cents > 0 || !userId) return router.push(`/event/${event.id}`);
     try {
       const isRegistered = await toggleEventRegistration(event.id, userId);
       setRegistered((current) => {
@@ -77,10 +80,11 @@ export default function LiveScreen() {
     const isHost = !!userId && item.host_id === userId;
     const isRegistered = registered.has(item.id);
     const hostName = item.organizations?.name || item.host?.full_name || 'NESBA Creator';
-    return <View style={styles.card}>
-      <View style={[styles.iconWrap, isLive && styles.iconWrapLive]}><Ionicons name={item.event_type === 'workshop' ? 'construct' : item.liveRoom ? 'mic' : 'videocam'} size={22} color={isLive ? colors.accent : colors.primaryLight} /></View>
+    const isPaid = item.price_cents > 0;
+    return <Pressable style={styles.card} onPress={() => router.push(`/event/${item.id}`)}>
+      <View style={[styles.iconWrap, isLive && styles.iconWrapLive]}><Ionicons name={item.event_type === 'workshop' ? 'construct' : item.event_type === 'masterclass' ? 'school' : item.liveRoom ? 'mic' : 'videocam'} size={22} color={isLive ? colors.accent : colors.primaryLight} /></View>
       <View style={styles.cardContent}>
-        <View style={styles.titleRow}><Text style={styles.eventTitle}>{item.title}</Text>{isLive && <View style={styles.liveTag}><Text style={styles.liveText}>LIVE</Text></View>}</View>
+        <View style={styles.titleRow}><Text style={styles.eventTitle}>{item.title}</Text>{isLive && <View style={styles.liveTag}><Text style={styles.liveText}>LIVE</Text></View>}{isPaid && <View style={styles.priceTag}><Text style={styles.priceText}>{formatPrice(item.price_cents, item.currency)}</Text></View>}</View>
         <Text style={styles.meta}>{startsAt.toLocaleString()} · {hostName}</Text>
         {!!item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
         <View style={styles.actions}>
@@ -89,7 +93,7 @@ export default function LiveScreen() {
               ? <Pressable style={styles.joinButton} onPress={() => router.push(`/live/${item.liveRoom.id}`)}><Text style={styles.joinText}>Open room</Text></Pressable>
               : <Pressable style={styles.registerButton} disabled={busyId === item.id} onPress={() => goLive(item)}><Text style={styles.registerText}>{busyId === item.id ? 'Starting…' : 'Go live'}</Text></Pressable>
           ) : <>
-            <Pressable style={[styles.registerButton, isRegistered && styles.registeredButton]} onPress={() => register(item)}><Text style={styles.registerText}>{isRegistered ? 'Registered' : 'Register'}</Text></Pressable>
+            <Pressable style={[styles.registerButton, isRegistered && styles.registeredButton]} disabled={isRegistered && isPaid} onPress={() => register(item)}><Text style={styles.registerText}>{isRegistered ? (isPaid ? 'Ticket ✓' : 'Registered') : isPaid ? 'Get ticket' : 'Register'}</Text></Pressable>
             {(isLive || isRegistered) && <Pressable style={styles.joinButton} onPress={() => join(item)}><Text style={styles.joinText}>{item.liveRoom ? 'Join live room' : 'Join'}</Text></Pressable>}
           </>}
           {!isLive && (isHost || isRegistered) && (
@@ -97,9 +101,14 @@ export default function LiveScreen() {
               <Ionicons name="calendar-number-outline" size={18} color={colors.primary} />
             </Pressable>
           )}
+          {isHost && !isLive && (
+            <Pressable style={styles.calendarButton} onPress={() => shareLink({ title: item.title, message: `Join "${item.title}" on NESBA`, url: eventLink(item.id) }).catch(() => {})} accessibilityLabel="Share link">
+              <Ionicons name="share-social-outline" size={18} color={colors.primary} />
+            </Pressable>
+          )}
         </View>
       </View>
-    </View>;
+    </Pressable>;
   };
 
   return <View style={styles.container}>
@@ -113,5 +122,5 @@ export default function LiveScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background,paddingHorizontal:spacing.md},center:{flex:1,alignItems:'center',justifyContent:'center'},headerRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingTop:spacing.lg,paddingBottom:spacing.md},header:{...typography.h1,fontSize:22},subheader:{...typography.caption,marginTop:3},createButton:{width:38,height:38,borderRadius:19,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},list:{paddingBottom:spacing.xl},card:{flexDirection:'row',gap:spacing.sm,backgroundColor:colors.surface,borderColor:colors.border,borderWidth:1,borderRadius:radius.md,padding:spacing.md,marginBottom:spacing.sm},iconWrap:{width:44,height:44,borderRadius:radius.sm,backgroundColor:colors.surfaceAlt,alignItems:'center',justifyContent:'center'},iconWrapLive:{borderWidth:1,borderColor:colors.accent},cardContent:{flex:1},titleRow:{flexDirection:'row',alignItems:'center',gap:spacing.xs,flexWrap:'wrap'},eventTitle:{...typography.body,fontWeight:'700',flexShrink:1},meta:{...typography.caption,marginTop:3},description:{...typography.caption,color:colors.textMuted,marginTop:spacing.xs,lineHeight:18},liveTag:{backgroundColor:colors.danger,borderRadius:radius.pill,paddingHorizontal:7,paddingVertical:2},liveText:{color:'#fff',fontSize:10,fontWeight:'800'},actions:{flexDirection:'row',gap:spacing.sm,marginTop:spacing.sm},registerButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:13,paddingVertical:8},registeredButton:{backgroundColor:colors.success},registerText:{color:'#fff',fontSize:12,fontWeight:'700'},joinButton:{borderColor:colors.primaryLight,borderWidth:1,borderRadius:radius.pill,paddingHorizontal:13,paddingVertical:8},joinText:{color:colors.primaryLight,fontSize:12,fontWeight:'700'},calendarButton:{borderColor:colors.border,borderWidth:1,borderRadius:radius.pill,paddingHorizontal:10,justifyContent:'center'},shortcuts:{flexDirection:'row',gap:spacing.sm,marginBottom:spacing.md},shortcut:{flexDirection:'row',alignItems:'center',gap:6,backgroundColor:colors.primarySoft,borderRadius:radius.pill,paddingHorizontal:12,paddingVertical:7},shortcutText:{color:colors.primary,fontWeight:'700',fontSize:13},empty:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl},emptyTitle:{...typography.h2,textAlign:'center',fontSize:18,marginTop:spacing.sm},emptyText:{...typography.body,color:colors.textMuted,textAlign:'center',lineHeight:21,marginTop:spacing.xs}
+  container:{flex:1,backgroundColor:colors.background,paddingHorizontal:spacing.md},center:{flex:1,alignItems:'center',justifyContent:'center'},headerRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingTop:spacing.lg,paddingBottom:spacing.md},header:{...typography.h1,fontSize:22},subheader:{...typography.caption,marginTop:3},createButton:{width:38,height:38,borderRadius:19,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},list:{paddingBottom:spacing.xl},card:{flexDirection:'row',gap:spacing.sm,backgroundColor:colors.surface,borderColor:colors.border,borderWidth:1,borderRadius:radius.md,padding:spacing.md,marginBottom:spacing.sm},iconWrap:{width:44,height:44,borderRadius:radius.sm,backgroundColor:colors.surfaceAlt,alignItems:'center',justifyContent:'center'},iconWrapLive:{borderWidth:1,borderColor:colors.accent},cardContent:{flex:1},titleRow:{flexDirection:'row',alignItems:'center',gap:spacing.xs,flexWrap:'wrap'},eventTitle:{...typography.body,fontWeight:'700',flexShrink:1},meta:{...typography.caption,marginTop:3},description:{...typography.caption,color:colors.textMuted,marginTop:spacing.xs,lineHeight:18},liveTag:{backgroundColor:colors.danger,borderRadius:radius.pill,paddingHorizontal:7,paddingVertical:2},liveText:{color:'#fff',fontSize:10,fontWeight:'800'},priceTag:{backgroundColor:colors.primarySoft,borderRadius:radius.pill,paddingHorizontal:7,paddingVertical:2},priceText:{color:colors.primary,fontSize:11,fontWeight:'800'},actions:{flexDirection:'row',gap:spacing.sm,marginTop:spacing.sm},registerButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:13,paddingVertical:8},registeredButton:{backgroundColor:colors.success},registerText:{color:'#fff',fontSize:12,fontWeight:'700'},joinButton:{borderColor:colors.primaryLight,borderWidth:1,borderRadius:radius.pill,paddingHorizontal:13,paddingVertical:8},joinText:{color:colors.primaryLight,fontSize:12,fontWeight:'700'},calendarButton:{borderColor:colors.border,borderWidth:1,borderRadius:radius.pill,paddingHorizontal:10,justifyContent:'center'},shortcuts:{flexDirection:'row',gap:spacing.sm,marginBottom:spacing.md},shortcut:{flexDirection:'row',alignItems:'center',gap:6,backgroundColor:colors.primarySoft,borderRadius:radius.pill,paddingHorizontal:12,paddingVertical:7},shortcutText:{color:colors.primary,fontWeight:'700',fontSize:13},empty:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl},emptyTitle:{...typography.h2,textAlign:'center',fontSize:18,marginTop:spacing.sm},emptyText:{...typography.body,color:colors.textMuted,textAlign:'center',lineHeight:21,marginTop:spacing.xs}
 });

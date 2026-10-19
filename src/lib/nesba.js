@@ -4930,6 +4930,7 @@ export async function createEvent({
   durationMinutes = 60,
   meetingUrl = null,
   capacity = null,
+  priceCents = 0,
 }) {
   const hostId =
     await getCurrentUserId();
@@ -4992,6 +4993,9 @@ export async function createEvent({
 
       host_id:
         hostId,
+
+      price_cents:
+        priceCents || 0,
 
       status:
         'scheduled',

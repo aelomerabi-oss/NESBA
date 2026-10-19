@@ -8,7 +8,7 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { registerForPush, usePushNavigation } from '../lib/push';
 
 // Screens a signed-in user may be on before finishing onboarding.
-const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms'];
+const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms', 'event'];
 
 /*
  * Accounts start with onboarded = false. Send them to onboarding once
@@ -148,6 +148,7 @@ export default function RootLayout() {
         <Stack.Screen name="tutoring/index" options={{ title: 'Private Sessions' }} />
         <Stack.Screen name="tutoring/[id]" options={{ title: 'Book a Session' }} />
         <Stack.Screen name="bookings" options={{ title: 'My Sessions' }} />
+        <Stack.Screen name="event/[id]" options={{ title: 'Workshop' }} />
         <Stack.Screen name="recordings" options={{ title: 'Recordings' }} />
         <Stack.Screen name="projects/showcase" options={{ title: 'Project Showcase' }} />
         <Stack.Screen name="projects/certificate/[id]" options={{ title: 'Project Certificate' }} />

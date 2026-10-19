@@ -11,6 +11,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { takeReturnTo } from '../../lib/return-to';
 
 import {
   colors,
@@ -162,7 +163,7 @@ export default function StudentSignup() {
       );
 
       setTimeout(() => {
-        router.replace('/(tabs)');
+        router.replace(takeReturnTo() || '/(tabs)');
       }, 1000);
 
     } catch (error) {

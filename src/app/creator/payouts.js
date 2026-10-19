@@ -12,6 +12,7 @@ import {
   openPayoutDashboard,
   openPayoutOnboarding,
 } from '../../lib/payments';
+import { getMyTicketSales } from '../../lib/workshops';
 
 export default function PayoutsScreen() {
   const { session } = useAuth();
@@ -30,7 +31,9 @@ export default function PayoutsScreen() {
     }
     try {
       setError('');
-      const [account, rows] = await Promise.all([getPayoutStatus(), getMySales(userId)]);
+      const [account, courseRows, ticketRows] = await Promise.all([getPayoutStatus(), getMySales(userId), getMyTicketSales(userId)]);
+      // Course sales and workshop tickets in one list, newest first.
+      const rows = [...courseRows, ...ticketRows].sort((a, b) => new Date(b.paid_at) - new Date(a.paid_at));
       setStatus(account);
       setSales(rows);
     } catch (e) {
@@ -117,7 +120,7 @@ export default function PayoutsScreen() {
         <Text style={styles.infoText}>• Refunds and payout schedules are managed in your Stripe dashboard.</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Course sales</Text>
+      <Text style={styles.sectionTitle}>Sales</Text>
       <View style={styles.stats}>
         <View style={styles.stat}>
           <Text style={styles.statNumber}>{sales.length}</Text>
@@ -132,7 +135,7 @@ export default function PayoutsScreen() {
       {sales.map((sale) => (
         <View key={sale.id} style={styles.sale}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.saleTitle} numberOfLines={1}>{sale.course?.title || 'Course'}</Text>
+            <Text style={styles.saleTitle} numberOfLines={1}>{sale.course?.title || (sale.event ? `Ticket: ${sale.event.title}` : 'Course')}</Text>
             <Text style={styles.cardText}>{new Date(sale.paid_at).toLocaleDateString()}</Text>
           </View>
           <Text style={styles.saleAmount}>{formatPrice(sale.amount_cents - sale.platform_fee_cents, sale.currency)}</Text>
