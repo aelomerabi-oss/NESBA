@@ -21,6 +21,7 @@ import {
 
 import { supabase } from '../../lib/supabase';
 
+import LegalLinks from '../../components/LegalLinks';
 export default function StudentSignup() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -93,41 +94,6 @@ export default function StudentSignup() {
         email.trim().toLowerCase();
 
       /*
-       * CHECK EXISTING EMAIL
-       */
-
-      const {
-        data: emailExists,
-        error: emailCheckError,
-      } = await supabase.rpc(
-        'email_exists_for_signup',
-        {
-          p_email: normalizedEmail,
-        }
-      );
-
-      if (emailCheckError) {
-        console.error(
-          'Email existence check error:',
-          emailCheckError
-        );
-
-        setErrorMessage(
-          'We could not verify this email address. Please try again.'
-        );
-
-        return;
-      }
-
-      if (emailExists === true) {
-        setErrorMessage(
-          'An account with this email already exists. Please log in instead.'
-        );
-
-        return;
-      }
-
-      /*
        * CREATE STUDENT ACCOUNT
        */
 
@@ -160,6 +126,19 @@ export default function StudentSignup() {
         throw new Error(
           'The student account could not be created.'
         );
+      }
+
+      /*
+       * With email confirmation on, signing up an existing address does not
+       * fail: Supabase returns a user with no identities and sends
+       * no email.
+       */
+      if (data.user.identities?.length === 0) {
+        setErrorMessage(
+          'An account with this email already exists. Please log in instead.'
+        );
+
+        return;
       }
 
       /*
@@ -473,6 +452,9 @@ export default function StudentSignup() {
         </Text>
 
       </Pressable>
+
+
+      <LegalLinks action="creating an account" />
 
 
       {/* SOCIAL DIVIDER */}

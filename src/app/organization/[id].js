@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, typography, radius } from '../../constants/theme';
-import { getFollowerCount, isFollowingOrganization, toggleFollow, setOrganizationFollowNotifications, getOrganizationPosts, getOrganizationStats, togglePostLike } from '../../lib/nesba';
+import { isFollowingOrganization, toggleFollow, setOrganizationFollowNotifications, getOrganizationPosts, getOrganizationStats, togglePostLike } from '../../lib/nesba';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import CourseCard from '../../components/CourseCard';
@@ -24,7 +24,15 @@ export default function OrganizationScreen() {
       ]);
       if(error) throw error;
       setOrg(data); setCourses(allCourses.filter(c=>c.organization_id===id)); setPosts(postData); setStats(statData);
-      if(session?.user) setFollow(await isFollowingOrganization(session.user.id,id));
+      if(session?.user){
+        setFollow(await isFollowingOrganization(session.user.id,id));
+        // Start each heart from the user's real like, or tapping it would unlike.
+        const postIds=postData.map(p=>p.id);
+        if(postIds.length){
+          const {data:likes}=await supabase.from('post_likes').select('post_id').eq('user_id',session.user.id).in('post_id',postIds);
+          setLiked(Object.fromEntries((likes||[]).map(l=>[l.post_id,true])));
+        }
+      }
     } catch(e){Alert.alert('Could not load organization',e.message);}
     finally{setLoading(false);setRefreshing(false);}
   },[id,session?.user?.id]);

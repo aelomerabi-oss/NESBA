@@ -26,6 +26,7 @@ import { supabase } from '../lib/supabase';
 
 import { useAuth } from '../context/AuthContext';
 
+import LegalLinks from '../components/LegalLinks';
 export default function LoginScreen() {
   const { signIn } = useAuth();
 
@@ -518,6 +519,8 @@ export default function LoginScreen() {
           )}
 
         </Pressable>
+
+        <LegalLinks action="logging in" />
 
       </View>
 

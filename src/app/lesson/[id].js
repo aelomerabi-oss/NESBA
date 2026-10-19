@@ -29,6 +29,7 @@ export default function LessonScreen() {
   const [content, setContent] = useState([]);
   const [completed, setCompleted] = useState(false);
   const [canViewContent, setCanViewContent] = useState(true);
+  const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -70,6 +71,12 @@ export default function LessonScreen() {
           allowed = !!enrollment;
         }
 
+        // Only the teacher can open a lesson the creator has locked.
+        const isTeacher =
+          !!session?.user &&
+          data?.courses?.teacher_id === session.user.id;
+
+        setLocked(!!data?.is_locked && !isTeacher);
         setCanViewContent(allowed);
 
         /*
@@ -107,17 +114,30 @@ export default function LessonScreen() {
           } = await supabase
             .from('course_modules')
             .select(
-              'id,title,duration_minutes,sort_order,is_locked,video_url'
+              'id,title,duration_minutes,sort_order,is_locked,video_url,course_sections(sort_order)'
             )
-            .eq('course_id', data.course_id)
-            .order('sort_order', {
-              ascending: true,
-            });
+            .eq('course_id', data.course_id);
 
           if (!lessonsError) {
-            setCourseLessons(lessons || []);
+            /*
+             * Lesson sort_order restarts at 1 in each section, so order
+             * by section first, matching the course page (lessons
+             * without a section come last).
+             */
+            const sectionOrder = (lesson) =>
+              lesson.course_sections
+                ? lesson.course_sections.sort_order || 0
+                : Number.MAX_SAFE_INTEGER;
 
-            const index = (lessons || []).findIndex(
+            const ordered = (lessons || []).sort(
+              (a, b) =>
+                sectionOrder(a) - sectionOrder(b) ||
+                (a.sort_order || 0) - (b.sort_order || 0)
+            );
+
+            setCourseLessons(ordered);
+
+            const index = ordered.findIndex(
               (item) => item.id === id
             );
 
@@ -365,6 +385,44 @@ export default function LessonScreen() {
         <Text style={styles.muted}>
           Lesson not found.
         </Text>
+      </View>
+    );
+  }
+
+  if (locked) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.center,
+        ]}
+      >
+        <Ionicons
+          name="lock-closed"
+          size={36}
+          color={colors.textMuted}
+        />
+
+        <Text style={styles.emptyContentTitle}>
+          This lesson is locked
+        </Text>
+
+        <Text style={styles.emptyContentText}>
+          The course creator has not opened this lesson yet.
+        </Text>
+
+        <Pressable
+          style={styles.enrollPrompt}
+          onPress={() =>
+            router.replace(
+              `/course/${lesson.course_id}`
+            )
+          }
+        >
+          <Text style={styles.enrollPromptText}>
+            Go to course
+          </Text>
+        </Pressable>
       </View>
     );
   }

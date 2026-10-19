@@ -7,7 +7,6 @@ import {
 } from 'react';
 
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -56,6 +55,13 @@ export function AuthProvider({ children }) {
 
   const messagePopupTimer = useRef(null);
 
+  // The user whose conversation is open, so their messages don't pop up.
+  const activeConversationRef = useRef(null);
+
+  const setActiveConversation = (userId) => {
+    activeConversationRef.current = userId || null;
+  };
+
   // ============================================
   // AUTH INITIALIZATION
   // ============================================
@@ -92,21 +98,29 @@ export function AuthProvider({ children }) {
     const {
       data: listener,
     } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         if (!mounted) return;
 
         setSession(session);
 
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          /*
+           * Supabase holds its auth lock while this callback runs, so
+           * querying from inside it can deadlock. Run the queries after.
+           */
+          setTimeout(async () => {
+            if (!mounted) return;
 
-          await refreshUnreadNotificationCount(
-            session.user.id
-          );
+            await fetchProfile(session.user.id);
 
-          await refreshUnreadMessageCount(
-            session.user.id
-          );
+            await refreshUnreadNotificationCount(
+              session.user.id
+            );
+
+            await refreshUnreadMessageCount(
+              session.user.id
+            );
+          }, 0);
         } else {
           setProfile(null);
 
@@ -363,6 +377,16 @@ export function AuthProvider({ children }) {
 
           const newMessage =
             payload.new;
+
+          /*
+           * The open conversation screen already shows and reads it.
+           */
+          if (
+            activeConversationRef.current ===
+            newMessage.sender_id
+          ) {
+            return;
+          }
 
           /*
            * Get sender profile so the popup
@@ -816,28 +840,26 @@ export function AuthProvider({ children }) {
         dismissMessage,
 
         openMessagePopup,
+
+        setActiveConversation,
       }}
     >
       {children}
 
       {/* ======================================
           GLOBAL MESSAGE POPUP
+
+          An overlay rather than a Modal: a Modal
+          blocks every tap on the screen while the
+          popup is visible.
          ====================================== */}
 
-      <Modal
-        visible={
-          !!messagePopup
-        }
-        transparent={true}
-        animationType="slide"
-        onRequestClose={
-          dismissMessage
-        }
-      >
+      {!!messagePopup && (
         <View
           style={
-            styles.modalContainer
+            styles.popupLayer
           }
+          pointerEvents="box-none"
         >
           {messagePopup && (
             <Pressable
@@ -913,26 +935,18 @@ export function AuthProvider({ children }) {
             </Pressable>
           )}
         </View>
-      </Modal>
+      )}
 
       {/* ======================================
           GLOBAL RED NOTIFICATION POPUP
          ====================================== */}
 
-      <Modal
-        visible={
-          !!notificationPopup
-        }
-        transparent={true}
-        animationType="slide"
-        onRequestClose={
-          dismissNotification
-        }
-      >
+      {!!notificationPopup && (
         <View
           style={
-            styles.modalContainer
+            styles.popupLayer
           }
+          pointerEvents="box-none"
         >
           {notificationPopup && (
             <Pressable
@@ -1012,7 +1026,7 @@ export function AuthProvider({ children }) {
             </Pressable>
           )}
         </View>
-      </Modal>
+      )}
     </AuthContext.Provider>
   );
 }
@@ -1032,14 +1046,16 @@ export function useAuth() {
 
 const styles =
   StyleSheet.create({
-    modalContainer: {
-      flex: 1,
+    popupLayer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 1000,
+      elevation: 1000,
       alignItems: 'center',
-      justifyContent: 'flex-start',
       paddingTop: 20,
       paddingHorizontal: 16,
-      backgroundColor:
-        'transparent',
     },
 
     messagePopup: {

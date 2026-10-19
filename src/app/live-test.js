@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { Room, RoomEvent } from 'livekit-client';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -12,7 +12,16 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
-export default function LiveTestScreen() {
+// A developer test page: not reachable in production builds.
+export default function LiveTestRoute() {
+  if (!__DEV__) {
+    return <Redirect href="/" />;
+  }
+
+  return <LiveTestScreen />;
+}
+
+function LiveTestScreen() {
   const { session, profile } = useAuth();
 
   const participantDisplayName =

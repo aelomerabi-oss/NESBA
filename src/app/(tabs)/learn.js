@@ -822,7 +822,7 @@ export default function LearningScreen() {
                   </Text>
 
 
-                  {certificate.issued_at && (
+                  {!!certificate.issued_at && (
 
                     <Text
                       style={styles.mutedSmall}

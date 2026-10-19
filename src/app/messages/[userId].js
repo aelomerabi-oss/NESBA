@@ -20,6 +20,7 @@ import {
 
 import {
   Stack,
+  useFocusEffect,
   useLocalSearchParams,
 } from 'expo-router';
 
@@ -48,8 +49,23 @@ export default function ConversationScreen() {
   const { userId } =
     useLocalSearchParams();
 
-  const { session } =
-    useAuth();
+  const {
+    session,
+    setActiveConversation,
+  } = useAuth();
+
+  /*
+   * Suppress the global "New Message" popup for this person
+   * while their conversation is on screen.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      setActiveConversation(userId);
+
+      return () =>
+        setActiveConversation(null);
+    }, [userId])
+  );
 
   const [messages, setMessages] =
     useState([]);
