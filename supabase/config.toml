@@ -60,3 +60,10 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/livekit-record/deno.json"
 entrypoint = "./functions/livekit-record/index.ts"
+
+# Nightly story clean-up, called by pg_cron (src/sql/034_story_cleanup.sql).
+[functions.cleanup-stories]
+enabled = true
+verify_jwt = false
+import_map = "./functions/cleanup-stories/deno.json"
+entrypoint = "./functions/cleanup-stories/index.ts"
