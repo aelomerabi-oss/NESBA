@@ -6,10 +6,12 @@ import { colors, radius, spacing, typography } from '../constants/theme';
 import PremiumBadge from './PremiumBadge';
 import { formatPrice } from '../lib/payments';
 
-export default function CourseCard({ course, stats }) {
+// fill: take the full width of a grid column instead of the fixed card width.
+export default function CourseCard({ course, stats, fill = false }) {
   return (
     <Link href={`/course/${course.id}`} asChild>
-      <Pressable style={styles.card}>
+      {/* Link copies the style onto a web element, which needs one flat object. */}
+      <Pressable style={StyleSheet.flatten([styles.card, fill && styles.fill])}>
         <Image accessibilityLabel={course.title || "Course image"} source={{ uri: course.thumbnail }} style={styles.thumb} />
         {course.isPremium && (
           <View style={styles.badgeWrap}>
@@ -50,6 +52,8 @@ export default function CourseCard({ course, stats }) {
 }
 
 const styles = StyleSheet.create({
+  fill: { width: '100%' },
+
   card: {
     width: 170,
     backgroundColor: colors.surface,

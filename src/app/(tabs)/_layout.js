@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useWindowDimensions } from 'react-native';
+import SideNav, { FULL_SIDE_MENU_MIN_WIDTH, SIDE_MENU_MIN_WIDTH } from '../../components/SideNav';
 
 import {
   colors,
@@ -7,10 +9,17 @@ import {
 
 
 export default function TabsLayout() {
+  const { width } = useWindowDimensions();
+  // Tablets and computers get a side menu instead of the bottom tab bar.
+  const sideMenu = width >= SIDE_MENU_MIN_WIDTH;
+
   return (
     <Tabs
+      tabBar={sideMenu ? (props) => <SideNav {...props} compact={width < FULL_SIDE_MENU_MIN_WIDTH} /> : undefined}
       screenOptions={{
         headerShown: false,
+
+        tabBarPosition: sideMenu ? 'left' : 'bottom',
 
         tabBarActiveTintColor:
           colors.primary,

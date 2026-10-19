@@ -1,9 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, FlatList, ScrollView, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, ScrollView, Pressable, StyleSheet, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius } from '../../constants/theme';
 import { getCourses, getCategories, getCourseStats } from '../../lib/courses';
 import CourseCard from '../../components/CourseCard';
+import { sideMenuWidth } from '../../components/SideNav';
+
+// CourseCard is 170 wide; as many columns as fit, at least two.
+const CARD_SPACE = 170 + spacing.md;
 
 const TRENDING_COUNT = 5;
 
@@ -20,6 +24,9 @@ const CATEGORY_LOOK = {
 const DEFAULT_LOOK = { icon: 'school-outline', color: '#6C5CE7' };
 
 export default function CoursesScreen() {
+  const { width } = useWindowDimensions();
+  const columns = Math.max(2, Math.floor((width - sideMenuWidth(width) - spacing.md * 2 + spacing.md) / CARD_SPACE));
+
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [stats, setStats] = useState(new Map());
@@ -212,8 +219,9 @@ export default function CoursesScreen() {
       <FlatList
         data={visibleCourses}
         keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={{ justifyContent: 'space-between' }}
+        key={columns}
+        numColumns={columns}
+        columnWrapperStyle={{ gap: spacing.md }}
         contentContainerStyle={{ paddingBottom: spacing.xl }}
         ListHeaderComponent={header}
         ListEmptyComponent={
@@ -223,8 +231,8 @@ export default function CoursesScreen() {
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         renderItem={({ item }) => (
-          <View style={{ marginBottom: spacing.md }}>
-            <CourseCard course={item} stats={stats.get(item.id)} />
+          <View style={{ flex: 1 / columns, marginBottom: spacing.md }}>
+            <CourseCard course={item} stats={stats.get(item.id)} fill />
           </View>
         )}
       />
