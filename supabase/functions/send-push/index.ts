@@ -16,6 +16,9 @@ const PREFERENCE_BY_TYPE: Record<string, string> = {
   event_live: "event_enabled",
   tutoring_booked: "event_enabled",
   tutoring_confirmed: "event_enabled",
+  ticket_purchase: "event_enabled",
+  event_registration: "event_enabled",
+  ticket_sale: "course_enabled",
   course_sale: "course_enabled",
   course_purchase: "course_enabled",
   assignment_submitted: "course_enabled",
@@ -35,6 +38,7 @@ function routeFor(type: string, data: Record<string, unknown>) {
   if (type === "message" && data.sender_id) return `/messages/${data.sender_id}`;
   if (data.room_id) return `/live/${data.room_id}`;
   if (data.booking_id) return "/bookings";
+  if (data.event_id) return `/event/${data.event_id}`;
   if (data.course_id) return `/course/${data.course_id}`;
   if (data.lesson_id) return `/lesson/${data.lesson_id}`;
   if (data.post_id) return `/post/${data.post_id}`;
