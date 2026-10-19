@@ -17,14 +17,18 @@ import {
   View,
 } from 'react-native';
 import PremiumBadge from '../../components/PremiumBadge';
+import { formatPrice, startCheckout } from '../../lib/payments';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { getCourseById } from '../../lib/courses';
 import { supabase } from '../../lib/supabase';
 
 export default function CourseDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, paid } = useLocalSearchParams();
   const { session } = useAuth();
+  const [buying, setBuying] = useState(false);
+  // Back from Stripe: the webhook enrolls the buyer within a few seconds.
+  const [awaitingPayment, setAwaitingPayment] = useState(paid === '1');
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -111,12 +115,42 @@ export default function CourseDetailScreen() {
     }, [id, session?.user?.id])
   );
 
+  // After checkout, poll until the payment webhook has enrolled the buyer.
+  useEffect(() => {
+    if (!awaitingPayment || !session?.user || enrolled) {
+      return undefined;
+    }
+
+    let tries = 0;
+
+    const timer = setInterval(async () => {
+      tries += 1;
+
+      const { data } = await supabase
+        .from('enrollments')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('course_id', id)
+        .maybeSingle();
+
+      if (data) {
+        setEnrolled(true);
+        setAwaitingPayment(false);
+      } else if (tries >= 15) {
+        setAwaitingPayment(false);
+        Alert.alert(
+          'Still processing',
+          'Your payment is still being confirmed. The course unlocks automatically; check back in a minute.'
+        );
+      }
+    }, 2500);
+
+    return () => clearInterval(timer);
+  }, [awaitingPayment, enrolled, id, session?.user]);
+
   const handleEnroll = async () => {
     if (!session?.user) {
-      Alert.alert(
-        'Log in required',
-        'Please log in to enroll in this course.'
-      );
+      router.push('/login');
       return;
     }
 
@@ -314,6 +348,30 @@ export default function CourseDetailScreen() {
 
   const isLocked = false;
 
+  const price = course.price_cents || 0;
+  const isOwnCourse = course.teacher_id === session?.user?.id;
+  const mustBuy = price > 0 && !enrolled && !isOwnCourse;
+
+  const handleBuy = async () => {
+    if (!session?.user) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      setBuying(true);
+      await startCheckout({
+        kind: 'course',
+        courseId: id,
+        webPath: `/course/${id}`,
+      });
+    } catch (e) {
+      Alert.alert('Could not start checkout', e.message);
+    } finally {
+      setBuying(false);
+    }
+  };
+
   return (
     <>
       <ScrollView
@@ -330,7 +388,7 @@ export default function CourseDetailScreen() {
         <View style={{ padding: spacing.md }}>
           {course.isPremium && (
             <View style={{ marginBottom: spacing.sm }}>
-              <PremiumBadge />
+              <PremiumBadge label={`PREMIUM · ${formatPrice(course.price_cents, course.currency)}`} />
             </View>
           )}
 
@@ -373,6 +431,15 @@ export default function CourseDetailScreen() {
             </Text>
           )}
 
+          {awaitingPayment && !enrolled && (
+            <View style={styles.paymentBanner}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={styles.paymentBannerText}>
+                Payment received. Unlocking your course…
+              </Text>
+            </View>
+          )}
+
           {isLocked ? (
             <Link href="/premium" asChild>
               <Pressable style={styles.unlockBanner}>
@@ -389,6 +456,23 @@ export default function CourseDetailScreen() {
             </Link>
           ) : (
             <View style={styles.actionRow}>
+              {mustBuy ? (
+              <Pressable
+                style={styles.enrollBtn}
+                onPress={handleBuy}
+                disabled={buying}
+              >
+                {buying ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.enrollBtnText}>
+                    {Platform.OS === 'web'
+                      ? `Buy for ${formatPrice(price, course.currency)}`
+                      : `Buy on the website · ${formatPrice(price, course.currency)}`}
+                  </Text>
+                )}
+              </Pressable>
+              ) : (
               <Pressable
                 style={[
                   styles.enrollBtn,
@@ -407,6 +491,7 @@ export default function CourseDetailScreen() {
                   </Text>
                 )}
               </Pressable>
+              )}
 
               <Pressable
                 style={styles.shareBtn}
@@ -885,6 +970,22 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: spacing.md,
     lineHeight: 21,
+  },
+
+  paymentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+
+  paymentBannerText: {
+    ...typography.body,
+    fontWeight: '700',
+    flex: 1,
   },
 
   unlockBanner: {

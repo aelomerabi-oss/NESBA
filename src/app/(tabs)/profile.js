@@ -1,14 +1,44 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../constants/theme';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { colors, isDarkTheme, radius, spacing, typography } from '../../constants/theme';
+import { saveThemeNameAndReload } from '../../lib/theme-preference';
 import { useAuth } from '../../context/AuthContext';
 
+function DarkModeRow() {
+  return (
+    <View style={[styles.row, styles.lastRow]}>
+      <Ionicons name="moon-outline" size={20} color={colors.textMuted} />
+      <Text style={styles.rowLabel}>Dark mode</Text>
+      <Switch
+        value={isDarkTheme}
+        onValueChange={(on) => saveThemeNameAndReload(on ? 'dark' : 'light')}
+        trackColor={{ true: colors.primary, false: colors.border }}
+        thumbColor="#fff"
+      />
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
-  const { user, session, signOut } = useAuth();
+  const { user, session, signOut, refreshProfile } = useAuth();
+
+  // Pick up changes made on the Edit Profile screen, such as a new photo.
+  useFocusEffect(
+    // refreshProfile is a new function on every render, so depending on it
+    // would refresh in a loop; the user id is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useCallback(() => {
+      if (session) refreshProfile();
+    }, [session?.user?.id])
+  );
 
   const rows = [
     { icon: 'school-outline', label: 'Your Learning', route: '/learn' },
+    { icon: 'construct-outline', label: 'Practical Projects', route: '/projects' },
+    { icon: 'person-circle-outline', label: 'Private Sessions', route: '/tutoring' },
+    { icon: 'calendar-outline', label: 'My Sessions', route: '/bookings' },
     { icon: 'create-outline', label: 'Creator Studio', route: '/creator' },
     { icon: 'person-outline', label: 'Edit Profile', route: '/edit-profile' },
     { icon: 'eye-outline', label: 'View Public Profile', route: user?.id ? `/user/${user.id}` : null },
@@ -35,6 +65,10 @@ export default function ProfileScreen() {
         <Pressable style={styles.loginBtn} onPress={() => router.push('/login')}>
           <Text style={styles.loginBtnText}>Log In / Sign Up</Text>
         </Pressable>
+
+        <View style={[styles.section, styles.guestSettings]}>
+          <DarkModeRow />
+        </View>
       </View>
     );
   }
@@ -50,11 +84,15 @@ export default function ProfileScreen() {
       contentContainerStyle={{ paddingBottom: spacing.xl }}
     >
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {user.name.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        {user.avatarUrl ? (
+          <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {user.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
 
         <Text style={styles.name}>{user.name}</Text>
         <Text style={styles.email}>{user.email}</Text>
@@ -82,6 +120,10 @@ export default function ProfileScreen() {
             />
           </Pressable>
         ))}
+      </View>
+
+      <View style={[styles.section, styles.settingsSection]}>
+        <DarkModeRow />
       </View>
 
       <Pressable style={styles.logoutBtn} onPress={signOut}>
@@ -202,6 +244,19 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+
+  lastRow: {
+    borderBottomWidth: 0,
+  },
+
+  settingsSection: {
+    marginTop: spacing.md,
+  },
+
+  guestSettings: {
+    marginTop: spacing.xl,
+    alignSelf: 'stretch',
   },
 
   rowLabel: {

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { DisconnectReason, Room, RoomEvent, Track } from 'livekit-client';
@@ -19,6 +19,9 @@ import LiveChat from '../../components/live/LiveChat';
 
 const POLL_MS = 8000;
 
+const REACTIONS = ['👍', '❤️', '👏', '😂', '🎉', '🙌'];
+const REACTION_MS = 4000;
+
 // three.js is only downloaded when someone opens a live room.
 const LectureHall3D = lazy(() => import('../../components/live/LectureHall3D'));
 
@@ -26,8 +29,8 @@ const LectureHall3D = lazy(() => import('../../components/live/LectureHall3D'));
 const userIdFromIdentity = (identity) => String(identity || '').slice(0, 36);
 
 /*
- * Live session room: 3D lecture hall, Clubhouse-style stage and audience,
- * host moderation, chat and screen sharing.
+ * Live session room: 3D lecture hall, stage and audience, requests to speak,
+ * cameras, reactions, host moderation, chat and screen sharing.
  *
  * Audio and screen sharing use livekit-client, which needs the browser's
  * WebRTC, so the room runs in the web version of the app. Phones need a
@@ -55,6 +58,10 @@ export default function LiveRoomScreen() {
   const [panel, setPanel] = useState('people');
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [presentationOpen, setPresentationOpen] = useState(false);
+  const [cameraOn, setCameraOn] = useState(false);
+  // userId -> MediaStreamTrack for everyone whose camera is on.
+  const [cameraTracks, setCameraTracks] = useState(new Map());
+  const [reactions, setReactions] = useState([]);
 
   // Read through a ref so the profile loading later does not rejoin the room.
   const displayNameRef = useRef(displayName);
@@ -87,12 +94,20 @@ export default function LiveRoomScreen() {
     audioElementsRef.current = [];
   };
 
+  const showReaction = useCallback((emoji, senderId) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setReactions((current) => [...current, { id, emoji, senderId, left: 10 + Math.random() * 70 }]);
+    setTimeout(() => setReactions((current) => current.filter((r) => r.id !== id)), REACTION_MS);
+  }, []);
+
   const disconnect = useCallback(() => {
     lkRoomRef.current?.disconnect();
     lkRoomRef.current = null;
     connectedRoleRef.current = null;
     cleanupAudio();
     setMicOn(false);
+    setCameraOn(false);
+    setCameraTracks(new Map());
     setScreenTrack(null);
     setScreenOwnerId(null);
     setSpeakingIds(new Set());
@@ -123,6 +138,18 @@ export default function LiveRoomScreen() {
       setScreenTrack((current) => (current === track.mediaStreamTrack ? null : current));
       setScreenOwnerId((current) => (current ? null : current));
     };
+    const showCamera = (track, identity) => {
+      const owner = userIdFromIdentity(identity);
+      setCameraTracks((current) => new Map(current).set(owner, track.mediaStreamTrack));
+    };
+    const clearCamera = (identity) => {
+      const owner = userIdFromIdentity(identity);
+      setCameraTracks((current) => {
+        const next = new Map(current);
+        next.delete(owner);
+        return next;
+      });
+    };
 
     lkRoom.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
       if (typeof document === 'undefined') return;
@@ -134,23 +161,41 @@ export default function LiveRoomScreen() {
         audioElementsRef.current.push(el);
       } else if (track.source === Track.Source.ScreenShare) {
         showScreen(track, participant.identity);
+      } else if (track.source === Track.Source.Camera) {
+        showCamera(track, participant.identity);
       }
     });
-    lkRoom.on(RoomEvent.TrackUnsubscribed, (track) => {
+    lkRoom.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
       if (track.kind === Track.Kind.Audio) {
         track.detach().forEach((el) => el?.parentNode?.removeChild(el));
       } else if (track.source === Track.Source.ScreenShare) {
         clearScreen(track);
+      } else if (track.source === Track.Source.Camera) {
+        clearCamera(participant.identity);
       }
     });
     lkRoom.on(RoomEvent.LocalTrackPublished, (publication) => {
       if (publication.source === Track.Source.ScreenShare && publication.track) {
         showScreen(publication.track, lkRoom.localParticipant.identity);
+      } else if (publication.source === Track.Source.Camera && publication.track) {
+        showCamera(publication.track, lkRoom.localParticipant.identity);
       }
     });
     lkRoom.on(RoomEvent.LocalTrackUnpublished, (publication) => {
       if (publication.source === Track.Source.ScreenShare && publication.track) {
         clearScreen(publication.track);
+      } else if (publication.source === Track.Source.Camera) {
+        clearCamera(lkRoom.localParticipant.identity);
+      }
+    });
+    lkRoom.on(RoomEvent.DataReceived, (payload, participant) => {
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg?.type === 'reaction' && REACTIONS.includes(msg.emoji)) {
+          showReaction(msg.emoji, userIdFromIdentity(participant?.identity));
+        }
+      } catch {
+        // Ignore data we do not understand.
       }
     });
     lkRoom.on(RoomEvent.TrackMuted, (publication, participant) => {
@@ -168,6 +213,8 @@ export default function LiveRoomScreen() {
       lkRoomRef.current = null;
       cleanupAudio();
       setMicOn(false);
+      setCameraOn(false);
+      setCameraTracks(new Map());
       setScreenTrack(null);
       if (leftRef.current) return;
       if (reason === DisconnectReason.PARTICIPANT_REMOVED) {
@@ -186,7 +233,7 @@ export default function LiveRoomScreen() {
     setNeedsAudioTap(!lkRoom.canPlaybackAudio);
     setStatus('connected');
     setMessage('');
-  }, [roomId, disconnect]);
+  }, [roomId, disconnect, showReaction]);
 
   const refresh = useCallback(async () => {
     const [roomRow, rows, mine] = await Promise.all([
@@ -312,6 +359,26 @@ export default function LiveRoomScreen() {
     updateMyLiveParticipation(roomId, userId, { hand_raised: !me?.hand_raised })
   );
 
+  const toggleCamera = () => run(async () => {
+    const local = lkRoomRef.current?.localParticipant;
+    if (!local) return;
+    try {
+      await local.setCameraEnabled(!cameraOn);
+      setCameraOn(!cameraOn);
+    } catch (e) {
+      if (e?.name === 'NotAllowedError') {
+        throw new Error('Camera access was blocked. Allow it in your browser to turn your camera on.');
+      }
+      throw e;
+    }
+  });
+
+  const sendReaction = (emoji) => {
+    showReaction(emoji, userId);
+    const data = new TextEncoder().encode(JSON.stringify({ type: 'reaction', emoji }));
+    lkRoomRef.current?.localParticipant.publishData(data, { reliable: true }).catch(() => {});
+  };
+
   const toggleScreenShare = () => run(async () => {
     const local = lkRoomRef.current?.localParticipant;
     if (!local) return;
@@ -330,6 +397,16 @@ export default function LiveRoomScreen() {
   const moderate = (targetId, action) => run(async () => {
     await moderateLiveParticipant(roomId, targetId, action);
     if (action === 'remove') setSelectedUserId(null);
+  });
+
+  // Listeners waiting for the host to let them speak.
+  const requests = people.filter((p) => p.hand_raised && p.role === 'listener');
+
+  const muteAll = () => run(async () => {
+    const speakers = people.filter((p) => p.role === 'speaker' && !p.is_muted);
+    for (const speaker of speakers) {
+      await moderateLiveParticipant(roomId, speaker.user_id, 'mute');
+    }
   });
 
   const endSession = () => run(async () => {
@@ -452,6 +529,37 @@ export default function LiveRoomScreen() {
         </Pressable>
       )}
 
+      {isHost && requests.length > 0 && (
+        <View style={styles.requests}>
+          <Text style={styles.requestsTitle}>✋ Requests to speak ({requests.length})</Text>
+          {requests.map((person) => (
+            <View key={person.user_id} style={styles.requestRow}>
+              <Text style={styles.requestName} numberOfLines={1}>{person.name}</Text>
+              <SmallButton disabled={working} label="Allow" onPress={() => moderate(person.user_id, 'speaker')} />
+              {/* Giving a listener the listener role again lowers their hand. */}
+              <SmallButton outline disabled={working} label="Decline" onPress={() => moderate(person.user_id, 'listener')} />
+            </View>
+          ))}
+        </View>
+      )}
+
+      {!isHost && !canPublish && me?.hand_raised && (
+        <Text style={styles.requestSent}>Your request to speak was sent to the host.</Text>
+      )}
+
+      {cameraTracks.size > 0 && (
+        <ScrollView horizontal style={styles.videoStrip} contentContainerStyle={{ gap: spacing.sm }}>
+          {[...cameraTracks.entries()].map(([ownerId, track]) => (
+            <View key={ownerId} style={styles.videoTile}>
+              <CameraVideo track={track} mirrored={ownerId === userId} />
+              <Text style={styles.videoName} numberOfLines={1}>
+                {ownerId === userId ? 'You' : peopleById.get(ownerId)?.name || 'Participant'}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
       <View style={[styles.main, wide && styles.mainWide]}>
         <View style={[styles.stage, !wide && styles.stageNarrow]}>
           <Suspense fallback={<View style={[styles.center, { flex: 1 }]}><ActivityIndicator color={colors.primary} /><Text style={styles.centerText}>Opening the lecture hall…</Text></View>}>
@@ -471,6 +579,12 @@ export default function LiveRoomScreen() {
               <Text style={styles.presentingText}>{presenterName} presenting · View full screen</Text>
             </Pressable>
           )}
+
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {reactions.map((r) => (
+              <Text key={r.id} style={[styles.reaction, { left: `${r.left}%` }]}>{r.emoji}</Text>
+            ))}
+          </View>
 
           {!!selected && (
             <View style={styles.popover}>
@@ -492,11 +606,38 @@ export default function LiveRoomScreen() {
         {sidePanel}
       </View>
 
+      <View style={styles.reactionBar}>
+        {REACTIONS.map((emoji) => (
+          <Pressable
+            key={emoji}
+            disabled={status !== 'connected'}
+            onPress={() => sendReaction(emoji)}
+            style={styles.reactionButton}
+          >
+            <Text style={styles.reactionButtonText}>{emoji}</Text>
+          </Pressable>
+        ))}
+      </View>
+
       <View style={styles.controls}>
         {canPublish ? (
           <ControlButton disabled={working || status !== 'connected'} active={micOn} icon={micOn ? 'mic' : 'mic-off'} label={micOn ? 'Mute' : 'Unmute'} onPress={toggleMic} />
         ) : (
-          <ControlButton disabled={working} active={me?.hand_raised} emoji="✋" label={me?.hand_raised ? 'Lower hand' : 'Raise hand'} onPress={toggleHand} />
+          <ControlButton disabled={working} active={me?.hand_raised} emoji="✋" label={me?.hand_raised ? 'Cancel request' : 'Request to speak'} onPress={toggleHand} />
+        )}
+
+        {canPublish && (
+          <ControlButton
+            disabled={working || status !== 'connected'}
+            active={cameraOn}
+            icon={cameraOn ? 'videocam' : 'videocam-off'}
+            label={cameraOn ? 'Camera off' : 'Camera on'}
+            onPress={toggleCamera}
+          />
+        )}
+
+        {isHost && (
+          <ControlButton disabled={working} icon="volume-mute" label="Mute all" onPress={muteAll} />
         )}
 
         {canPublish && (
@@ -526,6 +667,31 @@ export default function LiveRoomScreen() {
         </View>
       )}
     </View>
+  );
+}
+
+function CameraVideo({ track, mirrored }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return undefined;
+    video.srcObject = new MediaStream([track]);
+    video.play().catch(() => {});
+    return () => {
+      video.srcObject = null;
+    };
+  }, [track]);
+
+  // Your own camera is mirrored, as in Teams and Zoom.
+  return (
+    <video
+      ref={ref}
+      muted
+      playsInline
+      autoPlay
+      style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000', transform: mirrored ? 'scaleX(-1)' : undefined }}
+    />
   );
 }
 
@@ -591,10 +757,11 @@ function SmallButton({ label, onPress, disabled, outline, danger }) {
 }
 
 function ControlButton({ icon, emoji, label, onPress, disabled, active, danger }) {
+  const filled = active || danger;
   return (
     <Pressable disabled={disabled} onPress={onPress} style={[styles.control, active && styles.controlActive, danger && styles.controlDanger, disabled && { opacity: 0.6 }]}>
-      {emoji ? <Text style={styles.controlEmoji}>{emoji}</Text> : <Ionicons name={icon} size={20} color="#fff" />}
-      <Text style={styles.controlText}>{label}</Text>
+      {emoji ? <Text style={styles.controlEmoji}>{emoji}</Text> : <Ionicons name={icon} size={20} color={filled ? '#fff' : colors.text} />}
+      <Text style={[styles.controlText, filled && styles.controlTextFilled]} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
 }
@@ -633,7 +800,19 @@ const styles = StyleSheet.create({
   stageNarrow: { flex: 0, height: 380 },
   presentingChip: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(108,92,231,0.92)', borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
   presentingText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  popover: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: 'rgba(24,28,46,0.97)', borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingRight: 28 },
+  popover: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingRight: 28 },
+  requests: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.premium, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm, gap: 6 },
+  requestsTitle: { ...typography.body, fontWeight: '800' },
+  requestRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  requestName: { ...typography.body, flex: 1 },
+  requestSent: { ...typography.caption, color: colors.primary, marginBottom: spacing.sm, fontWeight: '700' },
+  videoStrip: { flexGrow: 0, marginBottom: spacing.sm },
+  videoTile: { width: 180, height: 120, borderRadius: radius.md, overflow: 'hidden', backgroundColor: '#000' },
+  videoName: { position: 'absolute', left: 6, bottom: 6, color: '#fff', fontSize: 11, fontWeight: '700', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, maxWidth: 160 },
+  reaction: { position: 'absolute', bottom: 20, fontSize: 34 },
+  reactionBar: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xs, paddingTop: spacing.sm },
+  reactionButton: { backgroundColor: colors.surfaceAlt, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
+  reactionButtonText: { fontSize: 18 },
   popoverClose: { position: 'absolute', top: 10, right: 10 },
   panel: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, padding: spacing.sm },
   panelWide: { width: 360 },
@@ -656,11 +835,12 @@ const styles = StyleSheet.create({
   smallButtonOutline: { backgroundColor: 'transparent', borderColor: colors.primaryLight, borderWidth: 1 },
   smallButtonOutlineText: { color: colors.primaryLight },
   smallButtonDanger: { backgroundColor: colors.danger },
-  controls: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.md },
-  control: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.surfaceAlt, borderRadius: radius.pill, paddingVertical: 12 },
+  controls: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingTop: spacing.sm },
+  control: { flex: 1, minWidth: 130, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.surfaceAlt, borderRadius: radius.pill, paddingVertical: 12, paddingHorizontal: 10 },
   controlActive: { backgroundColor: colors.primary },
   controlDanger: { backgroundColor: colors.danger },
-  controlText: { color: '#fff', fontWeight: '700' },
+  controlText: { color: colors.text, fontWeight: '700' },
+  controlTextFilled: { color: '#fff' },
   controlEmoji: { fontSize: 16 },
   presentationOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', padding: spacing.md },
   presentationClose: { position: 'absolute', top: 20, right: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(15,18,32,0.85)', borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8 },

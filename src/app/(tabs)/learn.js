@@ -15,7 +15,9 @@ import {
   View,
 } from 'react-native';
 
-import { Link } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+
+import { Link, router } from 'expo-router';
 
 import {
   colors,
@@ -449,6 +451,38 @@ export default function LearningScreen() {
         Continue where you left off
         and build your NESBA portfolio.
       </Text>
+
+
+      {/* ============================================================
+          PRACTICAL PROJECTS
+          ============================================================ */}
+
+      <Pressable
+        style={styles.projectsCard}
+        onPress={() => router.push('/projects')}
+      >
+        <Ionicons
+          name="construct-outline"
+          size={24}
+          color={colors.primary}
+        />
+
+        <View style={{ flex: 1 }}>
+          <Text style={styles.projectsTitle}>
+            Practical Projects
+          </Text>
+
+          <Text style={styles.muted}>
+            Team up and build something with what you learned.
+          </Text>
+        </View>
+
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={colors.textMuted}
+        />
+      </Pressable>
 
 
       {/* ============================================================
@@ -1049,6 +1083,21 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h1,
     fontSize: 24,
+  },
+
+  projectsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+
+  projectsTitle: {
+    ...typography.body,
+    fontWeight: '800',
   },
 
   muted: {

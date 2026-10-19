@@ -3,11 +3,12 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius } from '../constants/theme';
 
-export default function PremiumBadge({ small }) {
+// `label` replaces the word PREMIUM, e.g. with the course price.
+export default function PremiumBadge({ small, label }) {
   return (
     <View style={[styles.badge, small && styles.badgeSmall]}>
       <Ionicons name="star" size={small ? 10 : 12} color="#181C2E" />
-      <Text style={[styles.text, small && styles.textSmall]}>PREMIUM</Text>
+      <Text style={[styles.text, small && styles.textSmall]}>{label || 'PREMIUM'}</Text>
     </View>
   );
 }

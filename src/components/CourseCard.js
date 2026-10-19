@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { colors, radius, spacing, typography } from '../constants/theme';
 import PremiumBadge from './PremiumBadge';
+import { formatPrice } from '../lib/payments';
 
 export default function CourseCard({ course, stats }) {
   return (
@@ -12,7 +13,7 @@ export default function CourseCard({ course, stats }) {
         <Image source={{ uri: course.thumbnail }} style={styles.thumb} />
         {course.isPremium && (
           <View style={styles.badgeWrap}>
-            <PremiumBadge small />
+            <PremiumBadge small label={formatPrice(course.price_cents, course.currency)} />
           </View>
         )}
         <View style={styles.info}>

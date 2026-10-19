@@ -2,7 +2,7 @@ import React, {
   Fragment,
   useCallback,
   useEffect,
-  useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -38,21 +38,53 @@ import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
 
+import {
+  Audio,
+  ResizeMode,
+  Video,
+} from 'expo-av';
 
+import {
+  STORY_FILTERS,
+  STORY_MAX_SECONDS,
+  filterMediaStyle,
+  filterTintStyle,
+} from '../../lib/story-filters';
+
+import {
+  colors as theme,
+} from '../../constants/theme';
+
+import {
+  getLiveNowEvents,
+} from '../../lib/nesba';
+
+import {
+  getCurrentPlaceName,
+} from '../../lib/location';
+
+import {
+  MAX_UPLOAD_BYTES,
+  formatBytes,
+  uploadWithProgress,
+} from '../../lib/upload';
+
+
+// Home follows the app-wide light/dark palette.
 const colors = {
-  background: '#F7F8FA',
-  backgroundSoft: '#F1F3F8',
-  surface: '#FFFFFF',
-  card: '#FFFFFF',
-  primary: '#1769E0',
-  primarySoft: '#EAF2FF',
-  text: '#111827',
-  textSecondary: '#667085',
-  textMuted: '#98A2B3',
-  border: '#E4E7EC',
-  success: '#12B76A',
-  warning: '#F79009',
-  danger: '#F04438',
+  background: theme.background,
+  backgroundSoft: theme.surfaceAlt,
+  surface: theme.surface,
+  card: theme.surface,
+  primary: theme.primary,
+  primarySoft: theme.primarySoft,
+  text: theme.text,
+  textSecondary: theme.textSecondary,
+  textMuted: theme.textMuted,
+  border: theme.border,
+  success: theme.success,
+  warning: theme.warning,
+  danger: theme.danger,
   white: '#FFFFFF',
   black: '#000000',
 };
@@ -64,6 +96,10 @@ const spacing = {
   lg: 16,
   xl: 24,
 };
+
+// Only the first 45 seconds of a story's song are played, so a large
+// file is mostly wasted upload time.
+const MAX_STORY_AUDIO_BYTES = 15 * 1024 * 1024;
 
 /* =========================================================
    NESBA HOME
@@ -139,6 +175,11 @@ export default function HomeScreen() {
   ] = useState([]);
 
   const [
+    liveNow,
+    setLiveNow,
+  ] = useState([]);
+
+  const [
     storyEditorVisible,
     setStoryEditorVisible,
   ] = useState(false);
@@ -171,6 +212,20 @@ export default function HomeScreen() {
   const [
     storyAudio,
     setStoryAudio,
+  ] = useState(null);
+
+  const storySoundRef =
+    useRef(null);
+
+  const [
+    storyAudioPlaying,
+    setStoryAudioPlaying,
+  ] = useState(false);
+
+  // 0..1 while a post or story file is uploading, otherwise null.
+  const [
+    uploadProgress,
+    setUploadProgress,
   ] = useState(null);
 
 
@@ -333,32 +388,6 @@ export default function HomeScreen() {
   ];
 
 
-  const STORY_FILTERS = [
-    {
-      id: 'normal',
-      label: 'Normal',
-    },
-    {
-      id: 'warm',
-      label: 'Warm',
-    },
-    {
-      id: 'cool',
-      label: 'Cool',
-    },
-    {
-      id: 'mono',
-      label: 'Mono',
-    },
-    {
-      id: 'dream',
-      label: 'Dream',
-    },
-    {
-      id: 'vivid',
-      label: 'Vivid',
-    },
-  ];
 
 
   /* =======================================================
@@ -646,10 +675,16 @@ export default function HomeScreen() {
     useCallback(
       () => {
 
+        // Guests cannot post, so send them to log in first.
+        if (!currentUser) {
+          router.push('/login');
+          return;
+        }
+
         setComposerVisible(true);
 
       },
-      []
+      [currentUser, router]
     );
 
 
@@ -681,6 +716,145 @@ export default function HomeScreen() {
 
       },
       [creatingPost]
+    );
+
+
+  /* =======================================================
+     STORY AUDIO PREVIEW
+     ======================================================= */
+
+  // Play the chosen song while the story is being made, the way it will
+  // sound in the story: looping, and only the first STORY_MAX_SECONDS.
+  useEffect(() => {
+
+    let cancelled = false;
+
+    const start = async () => {
+
+      if (
+        !storyAudio?.uri ||
+        !storyEditorVisible
+      ) {
+        return;
+      }
+
+      try {
+
+        const { sound } =
+          await Audio.Sound.createAsync(
+            { uri: storyAudio.uri },
+            { shouldPlay: true, isLooping: true }
+          );
+
+        if (cancelled) {
+          sound.unloadAsync().catch(() => {});
+          return;
+        }
+
+        sound.setOnPlaybackStatusUpdate(status => {
+          if (!status.isLoaded) {
+            return;
+          }
+
+          setStoryAudioPlaying(status.isPlaying);
+
+          if (
+            status.positionMillis >=
+            STORY_MAX_SECONDS * 1000
+          ) {
+            sound.setPositionAsync(0).catch(() => {});
+          }
+        });
+
+        storySoundRef.current = sound;
+
+      } catch (error) {
+
+        console.warn(
+          'Story audio preview error:',
+          error
+        );
+      }
+    };
+
+    start();
+
+    return () => {
+
+      cancelled = true;
+
+      setStoryAudioPlaying(false);
+
+      storySoundRef.current
+        ?.unloadAsync()
+        .catch(() => {});
+
+      storySoundRef.current = null;
+    };
+
+  }, [
+    storyAudio?.uri,
+    storyEditorVisible,
+  ]);
+
+
+  const [
+    locating,
+    setLocating,
+  ] = useState(false);
+
+  const fillStoryLocation =
+    useCallback(
+      async () => {
+
+        setLocating(true);
+
+        try {
+
+          const place =
+            await getCurrentPlaceName();
+
+          if (place) {
+            setStoryLocation(place);
+          }
+
+        } catch (error) {
+
+          Alert.alert(
+            'Location',
+            error?.message ||
+              'Could not find your location. Type the place instead.'
+          );
+
+        } finally {
+
+          setLocating(false);
+        }
+
+      },
+      []
+    );
+
+
+  const toggleStoryAudio =
+    useCallback(
+      async () => {
+
+        const sound =
+          storySoundRef.current;
+
+        if (!sound) {
+          return;
+        }
+
+        if (storyAudioPlaying) {
+          await sound.pauseAsync();
+        } else {
+          await sound.playAsync();
+        }
+
+      },
+      [storyAudioPlaying]
     );
 
 
@@ -863,49 +1037,6 @@ export default function HomeScreen() {
      FILTER STYLE
      ======================================================= */
 
-  const getFilterStyle =
-    useCallback(
-      filter => {
-
-        switch (filter) {
-
-          case 'warm':
-            return {
-              backgroundColor:
-                'rgba(255,140,0,0.18)',
-            };
-
-          case 'cool':
-            return {
-              backgroundColor:
-                'rgba(0,130,255,0.18)',
-            };
-
-          case 'mono':
-            return {
-              backgroundColor:
-                'rgba(0,0,0,0.30)',
-            };
-
-          case 'dream':
-            return {
-              backgroundColor:
-                'rgba(255,150,210,0.20)',
-            };
-
-          case 'vivid':
-            return {
-              backgroundColor:
-                'rgba(100,255,140,0.15)',
-            };
-
-          default:
-            return null;
-        }
-
-      },
-      []
-    );
 
 
   /* =======================================================
@@ -1196,6 +1327,21 @@ export default function HomeScreen() {
   /* =======================================================
      LOAD STORIES
      ======================================================= */
+
+  const loadLiveNow =
+    useCallback(
+      async () => {
+        try {
+          setLiveNow(await getLiveNowEvents());
+        } catch (error) {
+          // The rest of Home still works without this section.
+          console.error('Live now error:', error);
+          setLiveNow([]);
+        }
+      },
+      []
+    );
+
 
   const loadStories =
     useCallback(
@@ -1621,6 +1767,7 @@ export default function HomeScreen() {
           await Promise.all([
             loadCourses(),
             loadStories(),
+            loadLiveNow(),
           ]);
 
           if (
@@ -1685,6 +1832,7 @@ export default function HomeScreen() {
         await Promise.all([
           loadCourses(),
           loadStories(),
+          loadLiveNow(),
         ]);
 
         if (
@@ -1832,6 +1980,12 @@ export default function HomeScreen() {
             uri:
               asset.uri,
 
+            file:
+              asset.file,
+
+            size:
+              asset.fileSize,
+
             name:
               asset.fileName ||
               `post-${Date.now()}.jpg`,
@@ -1900,6 +2054,10 @@ export default function HomeScreen() {
               quality:
                 0.8,
 
+              // iOS re-encodes to 720p, which makes uploads much smaller.
+              videoExportPreset:
+                ImagePicker.VideoExportPreset.H264_1280x720,
+
               videoMaxDuration:
                 180,
 
@@ -1917,9 +2075,26 @@ export default function HomeScreen() {
           const asset =
             result.assets[0];
 
+          if (
+            asset.fileSize &&
+            asset.fileSize > MAX_UPLOAD_BYTES
+          ) {
+            Alert.alert(
+              'Video too large',
+              `This video is ${formatBytes(asset.fileSize)}. The maximum is ${formatBytes(MAX_UPLOAD_BYTES)}. Try a shorter clip.`
+            );
+            return;
+          }
+
           setPostVideo({
             uri:
               asset.uri,
+
+            file:
+              asset.file,
+
+            size:
+              asset.fileSize,
 
             name:
               asset.fileName ||
@@ -1990,8 +2165,11 @@ export default function HomeScreen() {
               quality:
                 0.85,
 
+              videoExportPreset:
+                ImagePicker.VideoExportPreset.H264_1280x720,
+
               videoMaxDuration:
-                60,
+                STORY_MAX_SECONDS,
 
               selectionLimit:
                 1,
@@ -2013,9 +2191,39 @@ export default function HomeScreen() {
               ? 'video'
               : 'image';
 
+          // The picker reports duration in milliseconds.
+          if (
+            type === 'video' &&
+            asset.duration &&
+            asset.duration > STORY_MAX_SECONDS * 1000 + 500
+          ) {
+            Alert.alert(
+              'Video too long',
+              `Stories can be up to ${STORY_MAX_SECONDS} seconds. This video is ${Math.round(asset.duration / 1000)} seconds. Trim it and try again.`
+            );
+            return;
+          }
+
+          if (
+            asset.fileSize &&
+            asset.fileSize > MAX_UPLOAD_BYTES
+          ) {
+            Alert.alert(
+              'File too large',
+              `This file is ${formatBytes(asset.fileSize)}. The maximum is ${formatBytes(MAX_UPLOAD_BYTES)}.`
+            );
+            return;
+          }
+
           setStoryDraft({
             uri:
               asset.uri,
+
+            file:
+              asset.file,
+
+            size:
+              asset.fileSize,
 
             type,
 
@@ -2107,9 +2315,26 @@ export default function HomeScreen() {
             return;
           }
 
+          if (
+            file.size &&
+            file.size > MAX_STORY_AUDIO_BYTES
+          ) {
+            Alert.alert(
+              'Audio too large',
+              `This audio file is ${formatBytes(file.size)}. Choose one under ${formatBytes(MAX_STORY_AUDIO_BYTES)}.`
+            );
+            return;
+          }
+
           setStoryAudio({
             uri:
               file.uri,
+
+            file:
+              file.file,
+
+            size:
+              file.size,
 
             name:
               file.name ||
@@ -2255,19 +2480,6 @@ export default function HomeScreen() {
           );
         }
 
-        /*
-         * React Native / Expo files need to be
-         * converted into an ArrayBuffer.
-         */
-
-        const response =
-          await fetch(
-            file.uri
-          );
-
-        const arrayBuffer =
-          await response.arrayBuffer();
-
         const nameParts =
           (
             file.name ||
@@ -2306,51 +2518,29 @@ export default function HomeScreen() {
             .toString(36)
             .substring(2)}.${extension}`;
 
-        const {
-          error,
-        } =
-          await supabaseClient
-            .storage
-            .from(bucket)
-            .upload(
-              path,
-              arrayBuffer,
-              {
-                contentType:
-                  file.mimeType ||
-                  (
-                    file.type ===
-                    'video'
-                      ? 'video/mp4'
-                      : 'image/jpeg'
-                  ),
+        setUploadProgress(0);
 
-                upsert:
-                  false,
-              }
-            );
-
-        if (error) {
-          throw error;
+        try {
+          return await uploadWithProgress({
+            bucket,
+            path,
+            file: {
+              ...file,
+              mimeType:
+                file.mimeType ||
+                (
+                  file.type ===
+                  'video'
+                    ? 'video/mp4'
+                    : 'image/jpeg'
+                ),
+            },
+            onProgress:
+              setUploadProgress,
+          });
+        } finally {
+          setUploadProgress(null);
         }
-
-        const {
-          data,
-        } =
-          supabaseClient
-            .storage
-            .from(bucket)
-            .getPublicUrl(
-              path
-            );
-
-        return {
-          path,
-
-          publicUrl:
-            data?.publicUrl ||
-            null,
-        };
       },
       [
         currentUserId,
@@ -2756,8 +2946,9 @@ export default function HomeScreen() {
             author_id:
               currentUserId,
 
+            // posts.content is NOT NULL, so media-only posts send ''.
             content:
-              text || null,
+              text,
 
             image_url:
               imageUrl,
@@ -3281,8 +3472,9 @@ export default function HomeScreen() {
             author_id:
               currentUserId,
 
+            // post_comments.content is NOT NULL.
             content:
-              text || null,
+              text,
 
             media_url:
               mediaUrl,
@@ -4248,62 +4440,6 @@ export default function HomeScreen() {
      STORY MEDIA FILTER
      ======================================================= */
 
-  const storyFilterStyle =
-    useMemo(
-      () => {
-
-        switch (
-          storyFilter
-        ) {
-
-          case 'warm':
-
-            return {
-              backgroundColor:
-                'rgba(255,150,50,0.18)',
-            };
-
-          case 'cool':
-
-            return {
-              backgroundColor:
-                'rgba(50,150,255,0.18)',
-            };
-
-          case 'mono':
-
-            return {
-              backgroundColor:
-                'rgba(0,0,0,0.35)',
-            };
-
-          case 'dream':
-
-            return {
-              backgroundColor:
-                'rgba(255,120,220,0.20)',
-            };
-
-          case 'vivid':
-
-            return {
-              backgroundColor:
-                'rgba(100,255,120,0.16)',
-            };
-
-          default:
-
-            return {
-              backgroundColor:
-                'transparent',
-            };
-        }
-
-      },
-      [
-        storyFilter,
-      ]
-    );
 
 
   /* =======================================================
@@ -4929,8 +5065,10 @@ export default function HomeScreen() {
           styles.storyCard
         }
 
-        onPress={
-          pickStoryMedia
+        onPress={() =>
+          currentUser
+            ? pickStoryMedia()
+            : router.push('/login')
         }
       >
 
@@ -5005,8 +5143,10 @@ export default function HomeScreen() {
           </Text>
 
           <Pressable
-            onPress={
-              pickStoryMedia
+            onPress={() =>
+              currentUser
+                ? pickStoryMedia()
+                : router.push('/login')
             }
           >
 
@@ -5945,12 +6085,23 @@ export default function HomeScreen() {
 
                 {creatingPost ? (
 
-                  <ActivityIndicator
-                    size="small"
-                    color={
-                      colors.white
-                    }
-                  />
+                  <View style={styles.progressRow}>
+                    <ActivityIndicator
+                      size="small"
+                      color={
+                        colors.white
+                      }
+                    />
+                    <Text
+                      style={
+                        styles.publishButtonText
+                      }
+                    >
+                      {uploadProgress === null
+                        ? 'Posting…'
+                        : `Uploading ${Math.round(uploadProgress * 100)}%`}
+                    </Text>
+                  </View>
 
                 ) : (
 
@@ -6107,24 +6258,59 @@ export default function HomeScreen() {
           >
 
             <View
-              style={[
-                styles.storyPreview,
-                storyFilterStyle,
-              ]}
+              style={
+                styles.storyPreview
+              }
             >
 
-              <Image
-                source={{
-                  uri:
-                    storyDraft.uri,
-                }}
+              {isVideo ? (
 
-                style={
-                  styles.storyPreviewImage
-                }
+                <Video
+                  source={{
+                    uri:
+                      storyDraft.uri,
+                  }}
 
-                resizeMode="cover"
-              />
+                  style={[
+                    styles.storyPreviewImage,
+                    filterMediaStyle(
+                      storyFilter
+                    ),
+                  ]}
+
+                  resizeMode={
+                    ResizeMode.COVER
+                  }
+
+                  shouldPlay
+
+                  isLooping
+
+                  // The chosen song replaces the clip's own sound.
+                  isMuted={
+                    !!storyAudio
+                  }
+                />
+
+              ) : (
+
+                <Image
+                  source={{
+                    uri:
+                      storyDraft.uri,
+                  }}
+
+                  style={[
+                    styles.storyPreviewImage,
+                    filterMediaStyle(
+                      storyFilter
+                    ),
+                  ]}
+
+                  resizeMode="cover"
+                />
+
+              )}
 
 
               {/* =============================================
@@ -6136,7 +6322,9 @@ export default function HomeScreen() {
                 style={[
                   StyleSheet.absoluteFillObject,
 
-                  storyFilterStyle,
+                  filterTintStyle(
+                    storyFilter
+                  ),
                 ]}
               />
 
@@ -6244,25 +6432,6 @@ export default function HomeScreen() {
                   VIDEO INDICATOR
               ============================================= */}
 
-              {isVideo && (
-
-                <View
-                  style={
-                    styles.storyVideoIndicator
-                  }
-                >
-
-                  <Ionicons
-                    name="play"
-                    size={25}
-                    color={
-                      colors.white
-                    }
-                  />
-
-                </View>
-
-              )}
 
             </View>
 
@@ -6425,26 +6594,44 @@ export default function HomeScreen() {
                         >
 
                           <View
-                            style={[
-                              styles.filterPreview,
-
-                              getFilterStyle(
-                                filter.id
-                              ),
-                            ]}
+                            style={
+                              styles.filterPreview
+                            }
                           >
 
-                            <Image
-                              source={{
-                                uri:
-                                  storyDraft.uri,
-                              }}
+                            {isVideo ? (
+                              <View
+                                style={[
+                                  styles.filterPreviewImage,
+                                  styles.filterVideoSwatch,
+                                ]}
+                              />
+                            ) : (
+                              <Image
+                                source={{
+                                  uri:
+                                    storyDraft.uri,
+                                }}
 
-                              style={
-                                styles.filterPreviewImage
-                              }
+                                style={[
+                                  styles.filterPreviewImage,
+                                  filterMediaStyle(
+                                    filter.id
+                                  ),
+                                ]}
 
-                              resizeMode="cover"
+                                resizeMode="cover"
+                              />
+                            )}
+
+                            <View
+                              pointerEvents="none"
+                              style={[
+                                StyleSheet.absoluteFillObject,
+                                filterTintStyle(
+                                  filter.id
+                                ),
+                              ]}
                             />
 
                           </View>
@@ -6546,6 +6733,49 @@ export default function HomeScreen() {
 
                 </View>
 
+                <Pressable
+                  style={
+                    styles.useLocationButton
+                  }
+
+                  onPress={
+                    fillStoryLocation
+                  }
+
+                  disabled={
+                    locating
+                  }
+                >
+
+                  {locating ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={
+                        colors.primary
+                      }
+                    />
+                  ) : (
+                    <Ionicons
+                      name="navigate"
+                      size={17}
+                      color={
+                        colors.primary
+                      }
+                    />
+                  )}
+
+                  <Text
+                    style={
+                      styles.useLocationText
+                    }
+                  >
+                    {locating
+                      ? 'Finding your location…'
+                      : 'Use my current location'}
+                  </Text>
+
+                </Pressable>
+
               </View>
 
 
@@ -6635,10 +6865,34 @@ export default function HomeScreen() {
                           styles.selectedAudioSubtitle
                         }
                       >
-                        Added to story
+                        {storyAudioPlaying
+                          ? `Playing · first ${STORY_MAX_SECONDS} sec`
+                          : 'Paused'}
                       </Text>
 
                     </View>
+
+
+                    <Pressable
+                      onPress={
+                        toggleStoryAudio
+                      }
+                      style={
+                        styles.audioPlayButton
+                      }
+                    >
+                      <Ionicons
+                        name={
+                          storyAudioPlaying
+                            ? 'pause-circle'
+                            : 'play-circle'
+                        }
+                        size={30}
+                        color={
+                          colors.primary
+                        }
+                      />
+                    </Pressable>
 
 
                     <Pressable
@@ -6756,12 +7010,23 @@ export default function HomeScreen() {
 
                 {storyUploading ? (
 
-                  <ActivityIndicator
-                    size="small"
-                    color={
-                      colors.white
-                    }
-                  />
+                  <>
+                    <ActivityIndicator
+                      size="small"
+                      color={
+                        colors.white
+                      }
+                    />
+                    <Text
+                      style={
+                        styles.storyPublishButtonText
+                      }
+                    >
+                      {uploadProgress === null
+                        ? 'Sharing…'
+                        : `Uploading ${Math.round(uploadProgress * 100)}%`}
+                    </Text>
+                  </>
 
                 ) : (
 
@@ -6804,6 +7069,87 @@ export default function HomeScreen() {
        /* =======================================================
      TRENDING COURSES
      ======================================================= */
+
+  const LiveNowSection = () => {
+
+    if (liveNow.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.section}>
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <View style={styles.liveTitleRow}>
+              <View style={styles.liveDot} />
+              <Text style={styles.sectionTitle}>
+                Live Now
+              </Text>
+            </View>
+            <Text style={styles.sectionSubtitle}>
+              Join a session happening right now
+            </Text>
+          </View>
+
+          <Pressable onPress={() => router.push('/live')}>
+            <Text style={styles.seeAllText}>
+              See all
+            </Text>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.liveList}
+        >
+          {liveNow.map(event => (
+            <Pressable
+              key={event.id}
+              style={styles.liveCard}
+              onPress={() => {
+                if (!currentUser) {
+                  router.push('/login');
+                } else if (event.liveRoom) {
+                  router.push(`/live/${event.liveRoom.id}`);
+                } else {
+                  router.push('/live');
+                }
+              }}
+            >
+              <View style={styles.liveBadge}>
+                <View style={styles.liveBadgeDot} />
+                <Text style={styles.liveBadgeText}>LIVE</Text>
+              </View>
+
+              <Text style={styles.liveCardTitle} numberOfLines={2}>
+                {event.title || 'Live session'}
+              </Text>
+
+              <View style={styles.liveHostRow}>
+                {Avatar({
+                  uri: event.host?.avatar_url,
+                  name: event.host?.full_name,
+                  size: 24,
+                })}
+                <Text style={styles.liveHostName} numberOfLines={1}>
+                  {event.organizations?.name || event.host?.full_name || 'NESBA host'}
+                </Text>
+              </View>
+
+              <View style={styles.liveJoinButton}>
+                <Ionicons name="radio" size={15} color={colors.white} />
+                <Text style={styles.liveJoinText}>Join</Text>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+      </View>
+    );
+  };
+
 
   const TrendingCourses = () => {
 
@@ -8630,6 +8976,8 @@ export default function HomeScreen() {
 
         {CreatePostButton()}
 
+        {LiveNowSection()}
+
         {TrendingCourses()}
 
         {LatestPosts()}
@@ -9851,6 +10199,99 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  liveTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  liveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.danger,
+  },
+
+  liveList: {
+    gap: 12,
+    paddingRight: 12,
+  },
+
+  liveCard: {
+    width: 220,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    gap: 10,
+  },
+
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    backgroundColor: colors.danger,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+
+  liveBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.white,
+  },
+
+  liveBadgeText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  liveCardTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+    minHeight: 40,
+  },
+
+  liveHostRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  liveHostName: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+
+  liveJoinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 9,
+  },
+
+  liveJoinText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
 
   /* ==========================================================
      STORY EDITOR
@@ -10040,6 +10481,10 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
+  filterVideoSwatch: {
+    backgroundColor: '#4B5563',
+  },
+
   filterPreviewImage: {
     width: '100%',
     height: '100%',
@@ -10103,6 +10548,24 @@ const styles = StyleSheet.create({
   selectedAudioName: {
     color: colors.white,
     fontSize: 12,
+    fontWeight: '700',
+  },
+
+  audioPlayButton: {
+    marginRight: 6,
+  },
+
+  useLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 6,
+  },
+
+  useLocationText: {
+    color: colors.primary,
+    fontSize: 14,
     fontWeight: '700',
   },
 

@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "nesba",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -31,7 +31,14 @@
     "plugins": [
       "expo-router",
       "expo-audio",
-      "expo-web-browser"
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "NESBA uses your location only when you choose to add it to a story."
+        }
+      ],
+      "expo-web-browser",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

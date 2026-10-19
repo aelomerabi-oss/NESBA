@@ -782,6 +782,10 @@ export function AuthProvider({ children }) {
       profile?.email ||
       'guest@nesba.app',
 
+    avatarUrl:
+      profile?.avatar_url ||
+      null,
+
     isPremium:
       profile?.is_premium ||
       false,

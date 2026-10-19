@@ -3852,6 +3852,11 @@ export async function markStoryViewed({
         {
           onConflict:
             'story_id,viewer_id',
+
+          // Repeat views are skipped. Updating them would need an
+          // UPDATE policy on story_views, which viewers do not have.
+          ignoreDuplicates:
+            true,
         }
       );
 
@@ -4663,8 +4668,9 @@ export async function getPublicProfileCompletedCourses(
         'user_id',
         id
       )
-      .or(
-        'progress_percent.eq.100,completed.eq.true'
+      .gte(
+        'progress_percent',
+        100
       );
 
     if (error) {
@@ -4797,42 +4803,10 @@ export async function getPublicProfileLectures(
 }
 
 
-export async function getPublicProfileShares(
-  userId
-) {
-  try {
-    const {
-      data,
-      error,
-    } = await supabase
-      .from('post_shares')
-      .select('*')
-      .eq(
-        'user_id',
-        normalizeId(userId)
-      )
-      .order(
-        'created_at',
-        {
-          ascending: false,
-        }
-      );
-
-    if (error) {
-      console.error(
-        'getPublicProfileShares error:',
-        error
-      );
-
-      return [];
-    }
-
-    return safeArray(data);
-  } catch (
-    error
-  ) {
-    return [];
-  }
+// Shares are not recorded yet (there is no post_shares table),
+// so profiles always show an empty Shares list.
+export async function getPublicProfileShares() {
+  return [];
 }
 
 
@@ -4889,6 +4863,46 @@ export async function getEvents({
     throw new Error(
       error.message ||
       'Could not load events.'
+    );
+  }
+
+  return safeArray(data).map(
+    (event) => ({
+      ...event,
+
+      liveRoom:
+        safeArray(
+          event.live_audio_rooms
+        ).find(
+          (room) =>
+            room.status === 'live'
+        ) || null,
+    })
+  );
+}
+
+
+/*
+ * Events whose host is live right now, newest first. Anyone can see that an
+ * event is live; joining the room still needs an account.
+ */
+export async function getLiveNowEvents({
+  limit = 10,
+} = {}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('events')
+    .select(EVENT_SELECT)
+    .eq('status', 'live')
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not load live sessions.'
     );
   }
 

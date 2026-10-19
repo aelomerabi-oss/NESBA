@@ -24,7 +24,7 @@ import {
   useLocalSearchParams,
 } from 'expo-router';
 
-import EmojiPicker from 'emoji-picker-react';
+import EmojiPicker from '../../components/EmojiPicker';
 
 import {
   colors,

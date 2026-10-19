@@ -37,7 +37,8 @@ const sections = [
     heading: 'Who processes your data for us',
     body: [
       'Supabase stores our database, files and sign-in information.',
-      'LiveKit carries live session audio and screen sharing.',
+      'LiveKit carries live session audio, video and screen sharing.',
+      'Stripe processes payments for premium courses and private sessions, and pays out teachers and organizations. Your card or bank details go directly to Stripe; NESBA never sees or stores them.',
       'Google and Apple handle sign-in if you choose those options.',
       'These providers process data only to provide their service to us.',
     ],

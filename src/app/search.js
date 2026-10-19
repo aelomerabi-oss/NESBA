@@ -551,7 +551,7 @@ export default function SearchScreen() {
 
       {!loading &&
         !error &&
-        query.trim() &&
+        !!query.trim() &&
         users.length ===
           0 && (
 
