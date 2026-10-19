@@ -12,6 +12,7 @@ function DarkModeRow() {
       <Ionicons name="moon-outline" size={20} color={colors.textMuted} />
       <Text style={styles.rowLabel}>Dark mode</Text>
       <Switch
+        accessibilityLabel="Dark mode"
         value={isDarkTheme}
         onValueChange={(on) => saveThemeNameAndReload(on ? 'dark' : 'light')}
         trackColor={{ true: colors.primary, false: colors.border }}
@@ -47,6 +48,7 @@ export default function ProfileScreen() {
     { icon: 'chatbubbles-outline', label: 'Messages', route: '/messages' },
     { icon: 'headset-outline', label: 'Media & Podcasts', route: '/media' },
     { icon: 'business-outline', label: 'Organizations', route: '/organizations' },
+    { icon: 'help-circle-outline', label: 'FAQ', route: '/faq' },
     { icon: 'chatbox-ellipses-outline', label: 'Help & Feedback', route: '/feedback' },
     { icon: 'shield-checkmark-outline', label: 'Privacy Policy', route: '/privacy' },
     { icon: 'document-text-outline', label: 'Terms of Use', route: '/terms' },
@@ -85,7 +87,7 @@ export default function ProfileScreen() {
     >
       <View style={styles.header}>
         {user.avatarUrl ? (
-          <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+          <Image accessibilityLabel="Profile photo" source={{ uri: user.avatarUrl }} style={styles.avatar} />
         ) : (
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>

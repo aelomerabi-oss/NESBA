@@ -268,7 +268,7 @@ export default function SearchScreen() {
 
           {item.avatar_url ? (
 
-            <Image
+            <Image accessibilityLabel="Profile photo"
               source={{
                 uri:
                   item.avatar_url,
@@ -398,7 +398,7 @@ export default function SearchScreen() {
 
         {/* BACK */}
 
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back"
           style={
             styles.backButton
           }
@@ -470,7 +470,7 @@ export default function SearchScreen() {
           {query.length >
             0 && (
 
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel="Clear"
               onPress={() =>
                 setQuery('')
               }

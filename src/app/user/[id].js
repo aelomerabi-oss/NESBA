@@ -298,7 +298,7 @@ export default function PublicProfileScreen() {
 
       <View style={styles.header}>
         {avatar ? (
-          <Image
+          <Image accessibilityLabel="Profile photo"
             source={{
               uri: avatar,
             }}

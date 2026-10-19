@@ -112,7 +112,7 @@ export default function LiveScreen() {
   };
 
   return <View style={styles.container}>
-    <View style={styles.headerRow}><View><Text style={styles.header}>Live & Events</Text><Text style={styles.subheader}>Learn together in real time.</Text></View>{['teacher', 'mentor', 'organization', 'admin'].includes(user.role) && <Pressable style={styles.createButton} onPress={() => router.push('/creator/events')}><Ionicons name="add" size={18} color="#fff" /></Pressable>}</View>
+    <View style={styles.headerRow}><View><Text style={styles.header}>Live & Events</Text><Text style={styles.subheader}>Learn together in real time.</Text></View>{['teacher', 'mentor', 'organization', 'admin'].includes(user.role) && <Pressable accessibilityRole="button" accessibilityLabel="Schedule an event" style={styles.createButton} onPress={() => router.push('/creator/events')}><Ionicons name="add" size={18} color="#fff" /></Pressable>}</View>
     <View style={styles.shortcuts}>
       <Pressable style={styles.shortcut} onPress={() => router.push(userId ? '/recordings' : '/login')}><Ionicons name="play-circle-outline" size={16} color={colors.primary} /><Text style={styles.shortcutText}>Recordings</Text></Pressable>
       <Pressable style={styles.shortcut} onPress={() => router.push('/tutoring')}><Ionicons name="person-circle-outline" size={16} color={colors.primary} /><Text style={styles.shortcutText}>1-to-1 sessions</Text></Pressable>

@@ -1,14 +1,15 @@
 import '../lib/quiet-logs';
 import '../lib/web-alert';
-import { router, Stack, useSegments } from 'expo-router';
+import { router, Stack, usePathname, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { colors, isDarkTheme } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { registerForPush, usePushNavigation } from '../lib/push';
+import { setPageMeta } from '../lib/page-meta';
 
 // Screens a signed-in user may be on before finishing onboarding.
-const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms', 'event'];
+const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms', 'event', 'faq', '+not-found'];
 
 /*
  * Accounts start with onboarded = false. Send them to onboarding once
@@ -27,6 +28,46 @@ function OnboardingGate() {
       router.replace('/onboarding');
     }
   }, [loading, session, profile, segments]);
+
+  return null;
+}
+
+// Browser tab titles and descriptions for pages with a fixed title. Course,
+// workshop and offer pages set their own from their data.
+const PAGE_META = {
+  '/': {},
+  '/courses': { title: 'Business courses', description: "Practical courses for entrepreneurs, starters and zzp'ers, with quizzes, assignments and certificates." },
+  '/live': { title: 'Live classes and workshops', description: 'Join live classes, workshops and masterclasses in the NESBA 3D lecture hall.' },
+  '/learn': { title: 'My learning' },
+  '/profile': { title: 'My profile' },
+  '/tutoring': { title: '1-to-1 mentoring', description: 'Book a private session with an experienced entrepreneur, accountant or marketer.' },
+  '/projects': { title: 'Practical projects' },
+  '/projects/showcase': { title: 'Project showcase', description: 'Real projects finished by NESBA learners and teams.' },
+  '/organizations': { title: 'Organizations' },
+  '/recordings': { title: 'Recordings' },
+  '/search': { title: 'Search' },
+  '/faq': { title: 'Frequently asked questions', description: 'How NESBA works: courses, live classes, payments, refunds and teaching on NESBA.' },
+  '/terms': { title: 'Terms of Use' },
+  '/privacy': { title: 'Privacy Policy' },
+  '/login': { title: 'Log in' },
+  '/reset-password': { title: 'Reset password' },
+  '/signup': { title: 'Join NESBA', description: "Create your free NESBA account and learn from people who have built a business." },
+  '/signup/student': { title: 'Sign up' },
+  '/signup/teacher': { title: 'Teach on NESBA', description: 'Share what you know: sell courses, workshops and 1-to-1 sessions and keep 80% of every sale.' },
+  '/signup/organization': { title: 'NESBA for organizations' },
+  '/notifications': { title: 'Notifications' },
+  '/messages': { title: 'Messages' },
+  '/bookings': { title: 'My sessions' },
+  '/certificates': { title: 'Certificates' },
+};
+
+function PageMeta() {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const meta = PAGE_META[pathname];
+    if (meta) setPageMeta(meta);
+  }, [pathname]);
 
   return null;
 }
@@ -51,6 +92,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <OnboardingGate />
+      <PageMeta />
       <PushSetup />
       <StatusBar style={isDarkTheme ? 'light' : 'dark'} />
 
@@ -149,6 +191,8 @@ export default function RootLayout() {
         <Stack.Screen name="tutoring/[id]" options={{ title: 'Book a Session' }} />
         <Stack.Screen name="bookings" options={{ title: 'My Sessions' }} />
         <Stack.Screen name="event/[id]" options={{ title: 'Workshop' }} />
+        <Stack.Screen name="faq" options={{ title: 'FAQ' }} />
+        <Stack.Screen name="+not-found" options={{ title: 'Page not found' }} />
         <Stack.Screen name="recordings" options={{ title: 'Recordings' }} />
         <Stack.Screen name="projects/showcase" options={{ title: 'Project Showcase' }} />
         <Stack.Screen name="projects/certificate/[id]" options={{ title: 'Project Certificate' }} />

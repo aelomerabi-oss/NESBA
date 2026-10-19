@@ -48,7 +48,7 @@ export default function ProjectCertificateScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl }}>
       <View style={styles.certificate}>
-        <Image source={require('../../../assets/images/nesba-logo.png')} style={styles.logo} />
+        <Image accessibilityLabel="NESBA logo" source={require('../../../assets/images/nesba-logo.png')} style={styles.logo} />
         <Text style={styles.kicker}>NESBA · National Entrepreneurship & Small Business Academy</Text>
         <Text style={styles.heading}>Certificate of Project Completion</Text>
         <Text style={styles.small}>This certifies that</Text>

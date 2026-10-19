@@ -57,7 +57,7 @@ export default function Signup() {
 
       <View style={styles.header}>
 
-        <Image
+        <Image accessibilityLabel="NESBA logo"
           source={require('../../assets/images/nesba-logo.png')}
           style={styles.logo}
         />

@@ -1,19 +1,20 @@
 import { getStoredThemeName } from '../lib/theme-preference';
 
+// Text colors meet WCAG AA contrast (4.5:1) on the light backgrounds.
 const light = {
   background: '#F7F8FA',
   surface: '#FFFFFF',
   surfaceAlt: '#F1F3F8',
-  primary: '#6C5CE7',
-  primaryLight: '#8A7CF0',
+  primary: '#5F4FDC',
+  primaryLight: '#6C5CE7',
   primarySoft: '#EEEBFD',
   accent: '#00B8A3',
   premium: '#F5B942',
   text: '#111827',
   textSecondary: '#475467',
-  textMuted: '#667085',
+  textMuted: '#5F6879',
   border: '#E4E7EC',
-  danger: '#F04438',
+  danger: '#D92D20',
   success: '#12B76A',
   warning: '#F79009',
 };

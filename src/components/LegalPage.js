@@ -8,7 +8,7 @@ import { LEGAL } from '../constants/legal';
  */
 export default function LegalPage({ title, intro, sections }) {
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} tabIndex={0}>
       <View style={styles.inner}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.updated}>Last updated: {LEGAL.lastUpdated}</Text>

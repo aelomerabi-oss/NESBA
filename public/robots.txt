@@ -1,0 +1,16 @@
+# Public pages may be indexed; account, creator and admin screens may not.
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /creator
+Disallow: /messages
+Disallow: /notifications
+Disallow: /bookings
+Disallow: /edit-profile
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /auth/
+Disallow: /live-test
+Disallow: /live/
+
+Sitemap: https://nesba.app/sitemap.xml

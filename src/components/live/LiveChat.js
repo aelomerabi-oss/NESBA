@@ -121,7 +121,7 @@ export default function LiveChat({ roomId, currentUserId, isHost, people, disabl
           onSubmitEditing={send}
           returnKeyType="send"
         />
-        <Pressable style={[styles.send, (!text.trim() || disabled) && styles.sendDisabled]} disabled={!text.trim() || disabled || sending} onPress={send}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Send" style={[styles.send, (!text.trim() || disabled) && styles.sendDisabled]} disabled={!text.trim() || disabled || sending} onPress={send}>
           <Ionicons name="send" size={16} color="#fff" />
         </Pressable>
       </View>

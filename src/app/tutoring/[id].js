@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { formatPrice, startCheckout } from '../../lib/payments';
 import { getOffer, getTeacherReviews } from '../../lib/tutoring';
 import PersonAvatar from '../../components/PersonAvatar';
+import { usePageMeta } from '../../lib/page-meta';
 
 const DAYS_AHEAD = 21;
 
@@ -44,6 +45,8 @@ export default function OfferScreen() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  usePageMeta(offer?.title, offer?.description);
 
   const days = useMemo(() => {
     const today = startOfDay(new Date());

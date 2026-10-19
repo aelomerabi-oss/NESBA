@@ -9,6 +9,7 @@ import { eventLink, getEvent, getSeatsTaken, isRegistered, registerFree } from '
 import { startLiveRoom } from '../../lib/nesba';
 import { addToCalendar } from '../../lib/calendar';
 import { setReturnTo } from '../../lib/return-to';
+import { usePageMeta } from '../../lib/page-meta';
 import { shareLink } from '../../lib/share-link';
 import PersonAvatar from '../../components/PersonAvatar';
 
@@ -36,6 +37,8 @@ export default function EventScreen() {
   const [busy, setBusy] = useState(false);
   const [waitingForPayment, setWaitingForPayment] = useState(paid === '1');
   const [error, setError] = useState('');
+
+  usePageMeta(event?.title, event?.description);
 
   const load = useCallback(async () => {
     try {

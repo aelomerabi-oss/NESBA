@@ -185,7 +185,7 @@ export default function CreatorEvents() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back"
           onPress={() =>
             router.back()
           }

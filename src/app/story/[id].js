@@ -820,7 +820,7 @@ export default function StoryScreen() {
               useNativeControls={false}
             />
           ) : (
-            <Image
+            <Image accessibilityLabel="Story photo"
               key={String(currentStory.id)}
               source={{ uri: media }}
               style={[styles.media, filterMediaStyle(currentStory.filter_name)]}
@@ -997,7 +997,7 @@ export default function StoryScreen() {
           {
             authorAvatar ? (
 
-              <Image
+              <Image accessibilityLabel="Profile photo"
                 source={{
                   uri:
                     authorAvatar,
@@ -1074,7 +1074,7 @@ export default function StoryScreen() {
         </Pressable>
 
 
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Close"
           style={
             styles.closeButton
           }

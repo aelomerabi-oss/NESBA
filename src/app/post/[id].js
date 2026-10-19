@@ -42,11 +42,11 @@ export default function PostScreen() {
   if(!post) return <View style={styles.center}><Text style={styles.title}>Post not found</Text></View>;
 
   return <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-    <View style={styles.header}><Pressable onPress={()=>router.back()}><Ionicons name="arrow-back" size={23} color={colors.text}/></Pressable><Text style={styles.title}>Post</Text><Pressable onPress={()=>Share.share({message:post.content}).catch(e=>{if(e?.name!=='AbortError')Alert.alert('Sharing unavailable','Your browser does not support sharing.');})}><Ionicons name="share-outline" size={22} color={colors.text}/></Pressable></View>
+    <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={()=>router.back()}><Ionicons name="arrow-back" size={23} color={colors.text}/></Pressable><Text style={styles.title}>Post</Text><Pressable accessibilityRole="button" accessibilityLabel="Share" onPress={()=>Share.share({message:post.content}).catch(e=>{if(e?.name!=='AbortError')Alert.alert('Sharing unavailable','Your browser does not support sharing.');})}><Ionicons name="share-outline" size={22} color={colors.text}/></Pressable></View>
     <View style={styles.card}>
       <Pressable style={styles.authorRow} onPress={() => post.author_id && router.push({ pathname: '/profile/[id]', params: { id: String(post.author_id) } })}><View style={styles.avatar}><Text style={styles.avatarText}>{(post.author_name||'N').charAt(0).toUpperCase()}</Text></View><View style={{flex:1}}><Text style={styles.author}>{post.author_name||'NESBA Member'}</Text><Text style={styles.muted}>{new Date(post.created_at).toLocaleString()}</Text></View>{post.organizations?.verification_status==='verified'&&<Ionicons name="checkmark-circle" size={18} color={colors.primaryLight}/>}</Pressable>
       {!!post.content&&<Text style={styles.body}>{post.content}</Text>}
-      {!!post.image_url&&<Image source={{uri:post.image_url}} style={styles.media} resizeMode="cover"/>}
+      {!!post.image_url&&<Image accessibilityLabel="Photo in post" source={{uri:post.image_url}} style={styles.media} resizeMode="cover"/>}
       {!!post.video_url&&<Pressable style={styles.linkCard} onPress={()=>Linking.openURL(post.video_url)}><Ionicons name="play-circle" size={22} color={colors.primaryLight}/><Text style={styles.linkText}>Watch video</Text></Pressable>}
       {!!post.link_url&&<Pressable style={styles.linkCard} onPress={()=>Linking.openURL(post.link_url)}><Ionicons name="link" size={20} color={colors.primaryLight}/><Text style={styles.linkText} numberOfLines={1}>{post.link_url}</Text></Pressable>}
       <View style={styles.actions}>

@@ -10,7 +10,7 @@ export default function CourseCard({ course, stats }) {
   return (
     <Link href={`/course/${course.id}`} asChild>
       <Pressable style={styles.card}>
-        <Image source={{ uri: course.thumbnail }} style={styles.thumb} />
+        <Image accessibilityLabel={course.title || "Course image"} source={{ uri: course.thumbnail }} style={styles.thumb} />
         {course.isPremium && (
           <View style={styles.badgeWrap}>
             <PremiumBadge small label={formatPrice(course.price_cents, course.currency)} />

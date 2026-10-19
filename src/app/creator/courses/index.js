@@ -179,7 +179,7 @@ export default function Courses() {
                   <Pressable style={[styles.smallButton, working && { opacity: 0.6 }]} disabled={working} onPress={() => savePrice(course.id)}>
                     <Text style={styles.smallButtonText}>Save</Text>
                   </Pressable>
-                  <Pressable onPress={() => setEditingId(null)} hitSlop={8}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setEditingId(null)} hitSlop={8}>
                     <Ionicons name="close" size={20} color={colors.textMuted} />
                   </Pressable>
                 </View>

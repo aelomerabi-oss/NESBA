@@ -30,7 +30,7 @@ const COLUMNS = [
 function Avatar({ profile, size = 36 }) {
   const name = profile?.full_name || '?';
   if (profile?.avatar_url) {
-    return <Image source={{ uri: profile.avatar_url }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+    return <Image accessibilityLabel="Profile photo" source={{ uri: profile.avatar_url }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
   }
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
@@ -248,7 +248,7 @@ export default function ProjectScreen() {
               <Text style={styles.muted}>{m.member_role === 'owner' ? 'Project lead' : 'Member'}</Text>
             </View>
             {isOwner && m.member_role !== 'owner' && (
-              <Pressable hitSlop={8} disabled={working} onPress={() => run(() => leaveProject(id, m.user_id))}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Remove member" hitSlop={8} disabled={working} onPress={() => run(() => leaveProject(id, m.user_id))}>
                 <Ionicons name="person-remove-outline" size={18} color={colors.textMuted} />
               </Pressable>
             )}
@@ -313,7 +313,7 @@ export default function ProjectScreen() {
                     <Text style={styles.memberName}>{post.author?.full_name || 'NESBA member'}</Text>
                     <Text style={[styles.muted, { marginLeft: 'auto' }]}>{new Date(post.created_at).toLocaleDateString()}</Text>
                     {(post.author_id === userId || isOwner) && (
-                      <Pressable hitSlop={8} onPress={() => run(() => deleteProjectPost(post.id))}>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Delete" hitSlop={8} onPress={() => run(() => deleteProjectPost(post.id))}>
                         <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
                       </Pressable>
                     )}
@@ -342,7 +342,7 @@ export default function ProjectScreen() {
                     setTaskTitle('');
                   })}
                 />
-                <Pressable
+                <Pressable accessibilityRole="button" accessibilityLabel="Add task"
                   style={[styles.addTask, (!taskTitle.trim() || working) && styles.disabled]}
                   disabled={!taskTitle.trim() || working}
                   onPress={() => run(async () => {
@@ -361,7 +361,7 @@ export default function ProjectScreen() {
                     <Text style={styles.columnTitle}>{column.label} ({columnTasks.length})</Text>
                     {columnTasks.map((task) => (
                       <View key={task.id} style={styles.task}>
-                        <Pressable
+                        <Pressable accessibilityRole="button" accessibilityLabel="Move task to the next column"
                           hitSlop={8}
                           disabled={working}
                           onPress={() => run(() => updateProjectTask(task.id, { status: column.next }))}
@@ -384,7 +384,7 @@ export default function ProjectScreen() {
                           </Pressable>
                         </View>
                         {(task.created_by === userId || isOwner) && (
-                          <Pressable hitSlop={8} disabled={working} onPress={() => run(() => deleteProjectTask(task.id))}>
+                          <Pressable accessibilityRole="button" accessibilityLabel="Delete" hitSlop={8} disabled={working} onPress={() => run(() => deleteProjectTask(task.id))}>
                             <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
                           </Pressable>
                         )}

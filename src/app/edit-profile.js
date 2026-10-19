@@ -726,7 +726,7 @@ export default function EditProfileScreen() {
         >
 
           {avatarUrl ? (
-            <Image
+            <Image accessibilityLabel="Profile photo"
               source={{
                 uri:
                   avatarUrl,

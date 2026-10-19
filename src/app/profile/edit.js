@@ -691,7 +691,7 @@ export default function EditProfile() {
 
       <View style={styles.header}>
 
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back"
           onPress={() =>
             router.back()
           }
@@ -743,7 +743,7 @@ export default function EditProfile() {
         >
 
           {avatarUrl ? (
-            <Image
+            <Image accessibilityLabel="Profile photo"
               source={{
                 uri: avatarUrl,
               }}

@@ -2114,7 +2114,7 @@ export default function CreatorCourseBuilder() {
                         </Text>
                       </View>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button" accessibilityLabel="Delete"
                         onPress={() =>
                           removeLesson(
                             selectedModule.id,

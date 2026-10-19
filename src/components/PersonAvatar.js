@@ -6,7 +6,7 @@ export default function PersonAvatar({ person, size = 44 }) {
   const shape = { width: size, height: size, borderRadius: size / 2 };
 
   if (person?.avatar_url) {
-    return <Image source={{ uri: person.avatar_url }} style={shape} />;
+    return <Image accessibilityLabel="Profile photo" source={{ uri: person.avatar_url }} style={shape} />;
   }
 
   return (

@@ -77,7 +77,7 @@ export default function RecordingsScreen() {
               resizeMode={ResizeMode.CONTAIN}
             />
           ) : (
-            <Pressable style={styles.thumb} onPress={() => play(r)} disabled={r.status === 'recording' || opening === r.id}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Play recording" style={styles.thumb} onPress={() => play(r)} disabled={r.status === 'recording' || opening === r.id}>
               {opening === r.id ? (
                 <ActivityIndicator color="#fff" />
               ) : (

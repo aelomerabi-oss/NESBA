@@ -577,7 +577,7 @@ export default function CertificateScreen() {
           }
         >
 
-          <Image
+          <Image accessibilityLabel="NESBA logo"
             source={require(
               '../../assets/images/nesba-logo.png'
             )}

@@ -258,7 +258,7 @@ export default function CreatorMedia() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back"
           onPress={() =>
             router.back()
           }
@@ -677,7 +677,7 @@ export default function CreatorMedia() {
               </Text>
             </View>
 
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel="Remove"
               onPress={() =>
                 setSelectedFile(
                   null

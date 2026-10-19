@@ -15,7 +15,7 @@ function Stars({ value, onChange, size = 24 }) {
   return (
     <View style={{ flexDirection: 'row', gap: 4 }}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <Pressable key={n} disabled={!onChange} onPress={() => onChange?.(n)} hitSlop={4}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${n} star${n > 1 ? "s" : ""}`} key={n} disabled={!onChange} onPress={() => onChange?.(n)} hitSlop={4}>
           <Ionicons name={n <= value ? 'star' : 'star-outline'} size={size} color={colors.premium} />
         </Pressable>
       ))}

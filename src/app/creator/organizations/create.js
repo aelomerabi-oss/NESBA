@@ -147,7 +147,7 @@ export default function CreateOrganization() {
       {/* HEADER */}
 
       <View style={styles.header}>
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back"
           onPress={() => router.back()}
           style={styles.backButton}
         >

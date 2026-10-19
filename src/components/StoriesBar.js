@@ -552,7 +552,7 @@ export default function StoriesBar() {
 
             {user?.user_metadata?.avatar_url ? (
 
-              <Image
+              <Image accessibilityLabel="Profile photo"
                 source={{
                   uri:
                     user
@@ -686,7 +686,7 @@ export default function StoriesBar() {
 
                     {avatar ? (
 
-                      <Image
+                      <Image accessibilityLabel="Profile photo"
                         source={{
                           uri:
                             avatar,

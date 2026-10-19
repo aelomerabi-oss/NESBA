@@ -22,6 +22,7 @@ import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { getCourseById } from '../../lib/courses';
 import { supabase } from '../../lib/supabase';
+import { usePageMeta } from '../../lib/page-meta';
 
 export default function CourseDetailScreen() {
   const { id, paid } = useLocalSearchParams();
@@ -45,6 +46,8 @@ export default function CourseDetailScreen() {
   const [reviewText, setReviewText] = useState('');
   const [shareVisible, setShareVisible] = useState(false);
   const [expandedSections, setExpandedSections] = useState({});
+
+  usePageMeta(course?.title, course?.description);
 
   useEffect(() => {
     getCourseById(id)
@@ -410,7 +413,7 @@ export default function CourseDetailScreen() {
           paddingBottom: spacing.xl,
         }}
       >
-        <Image
+        <Image accessibilityLabel={course.title || "Course image"}
           source={{ uri: course.thumbnail }}
           style={styles.hero}
         />

@@ -63,6 +63,7 @@ import {
   getCurrentPlaceName,
 } from '../../lib/location';
 
+import GuestWelcome from '../../components/GuestWelcome';
 import {
   MAX_UPLOAD_BYTES,
   formatBytes,
@@ -900,7 +901,7 @@ export default function HomeScreen() {
     if (uri) {
 
       return (
-        <Image
+        <Image accessibilityLabel="Selected photo preview"
           source={{
             uri,
           }}
@@ -4503,7 +4504,7 @@ export default function HomeScreen() {
           style={styles.headerLeft}
         >
 
-          <Image
+          <Image accessibilityLabel="NESBA logo"
             source={require('../../assets/images/nesba-logo.png')}
             style={styles.brandMark}
           />
@@ -4599,7 +4600,7 @@ export default function HomeScreen() {
 
           {searchText.length > 0 && (
 
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel="Clear"
               onPress={() =>
                 setSearchText('')
               }
@@ -5375,7 +5376,7 @@ export default function HomeScreen() {
         }
       >
 
-        <Image
+        <Image accessibilityLabel="Selected photo preview"
           source={{
             uri:
               media.uri,
@@ -5424,7 +5425,7 @@ export default function HomeScreen() {
         </View>
 
 
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Close"
           style={
             styles.removeMediaButton
           }
@@ -5678,7 +5679,7 @@ export default function HomeScreen() {
                 Create Post
               </Text>
 
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityLabel="Clear"
                 onPress={
                   closeComposer
                 }
@@ -5802,7 +5803,7 @@ export default function HomeScreen() {
                     }
                   </Text>
 
-                  <Pressable
+                  <Pressable accessibilityRole="button" accessibilityLabel="Close"
                     onPress={() =>
                       setPostLink('')
                     }
@@ -6177,7 +6178,7 @@ export default function HomeScreen() {
             }
           >
 
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel="Close"
               style={
                 styles.storyHeaderButton
               }
@@ -6211,7 +6212,7 @@ export default function HomeScreen() {
             </Text>
 
 
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel="Done"
               style={
                 styles.storyHeaderButton
               }
@@ -6298,7 +6299,7 @@ export default function HomeScreen() {
 
               ) : (
 
-                <Image
+                <Image accessibilityLabel="Selected photo preview"
                   source={{
                     uri:
                       storyDraft.uri,
@@ -6611,7 +6612,7 @@ export default function HomeScreen() {
                                 ]}
                               />
                             ) : (
-                              <Image
+                              <Image accessibilityLabel="Selected photo preview"
                                 source={{
                                   uri:
                                     storyDraft.uri,
@@ -6877,7 +6878,7 @@ export default function HomeScreen() {
                     </View>
 
 
-                    <Pressable
+                    <Pressable accessibilityRole="button" accessibilityLabel={storyAudioPlaying ? "Pause audio" : "Play audio"}
                       onPress={
                         toggleStoryAudio
                       }
@@ -6899,7 +6900,7 @@ export default function HomeScreen() {
                     </Pressable>
 
 
-                    <Pressable
+                    <Pressable accessibilityRole="button" accessibilityLabel="Clear"
                       onPress={() =>
                         setStoryAudio(
                           null
@@ -7268,7 +7269,7 @@ export default function HomeScreen() {
                     course.cover_url ||
                     course.image_url ? (
 
-                      <Image
+                      <Image accessibilityLabel={course?.title || "Course image"}
                         source={{
                           uri:
                             course.thumbnail_url ||
@@ -7498,7 +7499,7 @@ export default function HomeScreen() {
         </Pressable>
 
 
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="More options"
           style={
             styles.postMoreButton
           }
@@ -7681,7 +7682,7 @@ export default function HomeScreen() {
 
         {!!post.image_url && (
 
-          <Image
+          <Image accessibilityLabel="Photo in post"
             source={{
               uri:
                 post.image_url,
@@ -7821,7 +7822,7 @@ export default function HomeScreen() {
 
             {!!comment.media_url && (
 
-              <Image
+              <Image accessibilityLabel="Photo in comment"
                 source={{
                   uri:
                     comment.media_url,
@@ -8060,7 +8061,7 @@ export default function HomeScreen() {
             </View>
 
 
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel="Clear"
               onPress={() =>
                 cancelReply(
                   postId
@@ -8095,7 +8096,7 @@ export default function HomeScreen() {
             }
           >
 
-            <Image
+            <Image accessibilityLabel="Selected photo preview"
               source={{
                 uri:
                   activeCommentMedia.uri,
@@ -8108,7 +8109,7 @@ export default function HomeScreen() {
               resizeMode="cover"
             />
 
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel="Close"
               style={
                 styles.commentAttachmentRemove
               }
@@ -8249,7 +8250,7 @@ export default function HomeScreen() {
               }
             >
 
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityLabel="Add emoji"
                 onPress={() =>
                   setCommentEmojiVisible(
                     previous => ({
@@ -8275,7 +8276,7 @@ export default function HomeScreen() {
               </Pressable>
 
 
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityLabel="Add photo"
                 onPress={() =>
                   pickCommentMedia(
                     postId
@@ -8294,7 +8295,7 @@ export default function HomeScreen() {
               </Pressable>
 
 
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityLabel="Send"
                 onPress={() =>
                   submitComment(
                     post
@@ -8974,11 +8975,13 @@ export default function HomeScreen() {
         }
       >
 
+        {!currentUserId && !loading && <GuestWelcome />}
+
         {SearchBar()}
 
         {StoriesSection()}
 
-        {CreatePostButton()}
+        {!!currentUserId && CreatePostButton()}
 
         {LiveNowSection()}
 

@@ -623,7 +623,7 @@ export default function LiveRoomScreen() {
                 working={working}
                 onModerate={moderate}
               />
-              <Pressable onPress={() => setSelectedUserId(null)} style={styles.popoverClose} hitSlop={8}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setSelectedUserId(null)} style={styles.popoverClose} hitSlop={8}>
                 <Ionicons name="close" size={16} color={colors.textMuted} />
               </Pressable>
             </View>

@@ -31,10 +31,10 @@ const sections = [
   {
     heading: 'Payments',
     body: [
-      'Some courses and private sessions are paid. Prices are shown in euros and include VAT where it applies. Payments are processed by Stripe.',
-      'Purchases are made on the NESBA website. A paid course stays available in your account after purchase. A private session is booked for the time you choose.',
+      'Some courses, workshops and private sessions are paid. Prices are shown in euros and include VAT where it applies. Payments are processed by Stripe.',
+      'Purchases are made on the NESBA website. A paid course stays available in your account after purchase. A private session is booked for the time you choose. A workshop ticket gives you a seat in that live session.',
       'Teachers and organizations who sell on NESBA connect their own Stripe account and agree to Stripe’s terms. NESBA keeps a 20% platform fee; the rest is paid to the creator by Stripe.',
-      'Under EU law you can cancel an online purchase within 14 days. By starting a paid course right away, or by having a private session take place, you agree that this right ends for that purchase. For a problem with a purchase, contact us and we will look at a refund.',
+      'Under EU law you can cancel an online purchase within 14 days. By starting a paid course right away, or by having a private session take place, you agree that this right ends for that purchase. For a problem with a purchase, contact us and we will look at a refund. If a host cancels a paid session or workshop, you get your money back.',
     ],
   },
   {

@@ -136,7 +136,7 @@ export default function AdminScreen() {
           </Text>
         </View>
 
-        <Pressable style={styles.refreshButton} onPress={load}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Refresh" style={styles.refreshButton} onPress={load}>
           <Ionicons
             name="refresh-outline"
             size={20}

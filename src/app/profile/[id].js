@@ -1020,7 +1020,7 @@ function PublicProfileContent() {
           {
             profile.avatar_url ? (
 
-              <Image
+              <Image accessibilityLabel="Profile photo"
                 source={{
                   uri:
                     profile.avatar_url,
@@ -1333,7 +1333,7 @@ function PublicProfileContent() {
                     {
                       image ? (
 
-                        <Image
+                        <Image accessibilityLabel="Photo"
                           source={{
                             uri:
                               image,
@@ -1418,7 +1418,7 @@ function PublicProfileContent() {
                   {
                     course?.thumbnail_url ? (
 
-                      <Image
+                      <Image accessibilityLabel={course?.title || "Course image"}
                         source={{
                           uri:
                             course.thumbnail_url,
@@ -1760,7 +1760,7 @@ function PublicProfileContent() {
                       {
                         badge?.icon_url ? (
 
-                          <Image
+                          <Image accessibilityLabel={badge?.name || "Badge"}
                             source={{
                               uri:
                                 badge.icon_url,

@@ -310,7 +310,7 @@ export default function LoginScreen() {
 
       <View style={styles.brand}>
 
-        <Image
+        <Image accessibilityLabel="NESBA logo"
           source={require(
             '../assets/images/nesba-logo.png'
           )}

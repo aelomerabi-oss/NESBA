@@ -109,7 +109,7 @@ export default function LessonQuiz({ lessonId, userId, isTeacher }) {
             <View style={styles.questionRow}>
               <Text style={styles.questionText}>{qi + 1}. {q.question}</Text>
               {isTeacher && (
-                <Pressable hitSlop={8} disabled={working} onPress={() => run(async () => { await deleteQuizQuestion(q.id); await load(); })}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Delete" hitSlop={8} disabled={working} onPress={() => run(async () => { await deleteQuizQuestion(q.id); await load(); })}>
                   <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
                 </Pressable>
               )}
@@ -177,7 +177,7 @@ export default function LessonQuiz({ lessonId, userId, isTeacher }) {
           />
           {options.map((option, i) => (
             <View key={i} style={styles.optionEdit}>
-              <Pressable onPress={() => setCorrect(i)} hitSlop={6}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Mark answer ${i + 1} as correct`} onPress={() => setCorrect(i)} hitSlop={6}>
                 <Ionicons name={correct === i ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={correct === i ? colors.success : colors.textMuted} />
               </Pressable>
               <TextInput

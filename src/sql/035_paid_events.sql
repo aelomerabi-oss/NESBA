@@ -193,3 +193,23 @@ alter table public.events add constraint events_event_type_check
 
 -- Trigger functions are not callable through the API.
 revoke execute on function public.guard_event_price() from public, anon, authenticated;
+
+-- Recordings of a paid workshop are for the host and ticket holders only.
+drop policy if exists "Recordings follow event access" on public.live_recordings;
+create policy "Recordings follow event access"
+  on public.live_recordings for select to authenticated
+  using (
+    started_by = auth.uid()
+    or exists (
+      select 1 from public.events e
+      where e.id = live_recordings.event_id
+        and (
+          e.host_id = auth.uid()
+          or (not e.is_private and e.price_cents = 0)
+          or exists (
+            select 1 from public.event_registrations r
+            where r.event_id = e.id and r.user_id = auth.uid()
+          )
+        )
+    )
+  );
