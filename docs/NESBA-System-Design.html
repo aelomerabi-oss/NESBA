@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NESBA – Platform System Design</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+  :root {
+    --primary: #6C5CE7; --primary-soft: #EEEBFD; --ink: #111827; --muted: #4B5563;
+    --line: #E4E7EC; --bg-soft: #F7F8FA; --accent: #00A3A3; --gold: #C9A227;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.5; margin: 0; }
+  h1, h2, h3 { line-height: 1.2; }
+  h2 { font-size: 19pt; color: var(--primary); margin: 0 0 4mm; padding-bottom: 2mm; border-bottom: 2px solid var(--primary-soft); }
+  h3 { font-size: 12.5pt; margin: 6mm 0 2mm; }
+  p { margin: 0 0 2.5mm; }
+  .page { page-break-after: always; }
+  section.page:last-of-type { page-break-after: auto; }
+  .lead { font-size: 11.5pt; color: var(--muted); margin-bottom: 5mm; }
+  .muted { color: var(--muted); }
+  .small { font-size: 9pt; }
+
+  /* Cover */
+  .cover { height: 260mm; display: flex; flex-direction: column; justify-content: space-between; padding: 18mm 6mm; background: linear-gradient(160deg, #F3F1FE 0%, #FFFFFF 55%); border-radius: 6mm; }
+  .cover .brand { font-size: 13pt; letter-spacing: 3px; color: var(--primary); font-weight: 800; }
+  .cover h1 { font-size: 40pt; margin: 0; color: var(--ink); }
+  .cover .sub { font-size: 15pt; color: var(--muted); margin-top: 4mm; max-width: 150mm; }
+  .cover .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+  .cover .meta div { background: #fff; border: 1px solid var(--line); border-radius: 3mm; padding: 4mm; }
+  .cover .meta b { display: block; font-size: 9pt; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* Contents */
+  .toc { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 10mm; }
+  .toc li { padding: 2mm 0; border-bottom: 1px dotted var(--line); break-inside: avoid; }
+  .toc span { color: var(--primary); font-weight: 700; margin-right: 3mm; }
+
+  /* Cards & tables */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+  .card { border: 1px solid var(--line); border-radius: 3mm; padding: 3.5mm 4mm; background: #fff; break-inside: avoid; }
+  .card h4 { margin: 0 0 1.5mm; font-size: 10.5pt; color: var(--primary); }
+  .card p, .card li { font-size: 9.5pt; }
+  .card ul { margin: 0; padding-left: 4.5mm; }
+  table { width: 100%; border-collapse: collapse; font-size: 9.3pt; margin: 2mm 0 4mm; break-inside: auto; }
+  th { background: var(--primary); color: #fff; text-align: left; padding: 2mm 2.5mm; font-weight: 600; }
+  td { padding: 1.8mm 2.5mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--bg-soft); }
+  tr { break-inside: avoid; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 8.8pt; background: var(--bg-soft); padding: .3mm 1.2mm; border-radius: 1mm; }
+  .tag { display: inline-block; font-size: 8pt; font-weight: 700; padding: .4mm 2mm; border-radius: 10mm; background: var(--primary-soft); color: var(--primary); margin-right: 1mm; }
+  .tag.green { background: #DCFCE7; color: #166534; } .tag.amber { background: #FEF3C7; color: #92400E; } .tag.red { background: #FEE2E2; color: #991B1B; }
+
+  /* Diagrams */
+  .diagram { border: 1px solid var(--line); border-radius: 3mm; padding: 3mm; margin: 2mm 0 4mm; background: #fff; break-inside: avoid; text-align: center; }
+  .diagram .caption { font-size: 8.8pt; color: var(--muted); margin-top: 1.5mm; }
+  .mermaid { display: flex; justify-content: center; }
+  .mermaid svg { max-width: 100%; max-height: 165mm; height: auto; }
+  .flow { break-inside: avoid; margin-bottom: 3mm; }
+  .note { background: var(--primary-soft); border-left: 3px solid var(--primary); padding: 3mm 4mm; border-radius: 0 2mm 2mm 0; font-size: 9.5pt; margin: 3mm 0; break-inside: avoid; }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+  .steps li { counter-increment: s; position: relative; padding: 1.2mm 0 1.2mm 8mm; font-size: 9.6pt; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 1.2mm; width: 5.5mm; height: 5.5mm; border-radius: 50%; background: var(--primary); color: #fff; font-size: 8pt; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .keep { break-inside: avoid; }
+  .arch { border: 1px solid var(--line); border-radius: 3mm; padding: 4mm; margin: 2mm 0 4mm; break-inside: avoid; }
+  .band { display: flex; align-items: center; gap: 4mm; border-radius: 3mm; padding: 3mm 4mm; }
+  .band-label { width: 34mm; flex-shrink: 0; font-weight: 800; font-size: 10.5pt; }
+  .band-label small { display: block; font-weight: 400; font-size: 8pt; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 2mm; }
+  .chips span { background: #fff; border: 1px solid; border-radius: 2mm; padding: 1.5mm 2.5mm; font-size: 9pt; font-weight: 600; }
+  .people { background: #FFF7E6; } .people .chips span { border-color: #C9A227; }
+  .fe { background: #EEEBFD; } .fe .chips span { border-color: #6C5CE7; }
+  .be { background: #E6F7F5; } .be .chips span { border-color: #00A3A3; }
+  .ext { background: #F1F3F8; } .ext .chips span { border-color: #98A2B3; }
+  .arrow { text-align: center; color: var(--muted); font-size: 8.5pt; padding: 1.2mm 0; }
+  .arch .caption { font-size: 8.8pt; color: var(--muted); text-align: center; margin-top: 2mm; }
+  .hub { background: var(--primary); color: #fff; font-weight: 800; border-radius: 3mm; padding: 3mm 4mm; text-align: center; margin: 2mm 0 3mm; }
+  .hub small { font-weight: 400; opacity: .85; }
+  .domains { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; margin-bottom: 4mm; }
+  .domain { border: 1px solid var(--line); border-left: 4px solid var(--primary); border-radius: 2mm; padding: 3mm 4mm; font-size: 9.3pt; break-inside: avoid; }
+  .domain b { display: block; color: var(--primary); margin-bottom: 1mm; }
+  .domain div { font-family: Consolas, monospace; font-size: 8.4pt; color: var(--ink); padding: .6mm 0; }
+  .footer-note { font-size: 8.5pt; color: var(--muted); margin-top: 4mm; }
+</style>
+</head>
+<body>
+
+<!-- ============================== COVER ============================== -->
+<section class="page">
+  <div class="cover">
+    <div>
+      <div class="brand">NESBA</div>
+      <div class="muted small">National Entrepreneurship &amp; Small Business Academy</div>
+    </div>
+    <div>
+      <h1>Platform System Design</h1>
+      <div class="sub">How the NESBA learning platform works: the apps people use (frontend), the services behind them (backend), and the flows that connect them.</div>
+    </div>
+    <div class="meta">
+      <div><b>Version</b>October 2026</div>
+      <div><b>Platforms</b>Web · iPhone · Android</div>
+      <div><b>Stack</b>Expo / React Native · Supabase · LiveKit · Stripe</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== CONTENTS ============================== -->
+<section class="page">
+  <h2>Contents</h2>
+  <ol class="toc">
+    <li><span>1</span>The platform at a glance</li>
+    <li><span>2</span>Technology stack</li>
+    <li><span>3</span>Frontend: app structure and navigation</li>
+    <li><span>4</span>Frontend: screens and shared building blocks</li>
+    <li><span>5</span>Backend: Supabase services</li>
+    <li><span>6</span>Backend: server functions and scheduled jobs</li>
+    <li><span>7</span>Data model</li>
+    <li><span>8</span>Users, roles and permissions</li>
+    <li><span>9</span>Flow: sign-up, login and onboarding</li>
+    <li><span>10</span>Flow: posts, stories and uploads</li>
+    <li><span>11</span>Flow: courses, lessons, quizzes and certificates</li>
+    <li><span>12</span>Flow: buying a premium course</li>
+    <li><span>13</span>Flow: booking a private session</li>
+    <li><span>14</span>Flow: live sessions and recordings</li>
+    <li><span>15</span>Flow: notifications and push</li>
+    <li><span>16</span>Flow: practical projects</li>
+    <li><span>17</span>Security model</li>
+    <li><span>18</span>Configuration, deployment and operations</li>
+    <li><span>19</span>Capacity and costs (year 1)</li>
+    <li><span>20</span>Go-live checklist</li>
+  </ol>
+
+  <div class="note" style="margin-top:10mm">
+    <b>How to read this document.</b> Boxes and arrows show which part talks to which. “Frontend” is everything that runs on the user’s phone or in their browser. “Backend” is everything that runs on servers NESBA rents (Supabase, LiveKit, Stripe). NESBA runs no servers of its own: every backend piece is a managed service.
+  </div>
+</section>
+
+<!-- ============================== 1. AT A GLANCE ============================== -->
+<section class="page">
+  <h2>1 · The platform at a glance</h2>
+  <p class="lead">One codebase builds three apps (website, iPhone, Android). All of them talk to the same backend.</p>
+
+  <div class="arch">
+    <div class="band people"><div class="band-label">People</div><div class="chips">
+      <span>🎓 Students</span><span>👩‍🏫 Teachers &amp; mentors</span><span>🏢 Organizations</span><span>🛡️ Admins</span></div></div>
+    <div class="arrow">▼ use</div>
+    <div class="band fe"><div class="band-label">Frontend<small>one Expo / React Native codebase</small></div><div class="chips">
+      <span>🌐 Website</span><span>📱 iPhone app</span><span>🤖 Android app</span></div></div>
+    <div class="arrow">▼ secure API calls · realtime · uploads</div>
+    <div class="band be"><div class="band-label">Supabase<small>main backend (EU)</small></div><div class="chips">
+      <span>🔑 Auth</span><span>🗄️ Postgres + security rules</span><span>📁 Storage</span><span>⚡ Realtime</span><span>🧩 Edge Functions</span><span>⏰ pg_cron · pg_net</span></div></div>
+    <div class="arrow">▼ server functions call · ▲ webhooks come back</div>
+    <div class="band ext"><div class="band-label">External services</div><div class="chips">
+      <span>🎙️ LiveKit · live video &amp; recording</span><span>💳 Stripe Connect · payments</span><span>🔔 Expo Push</span><span>🔐 Google · Apple sign-in</span><span>🗺️ OpenStreetMap</span></div></div>
+    <div class="caption">Figure 1 · System overview. The apps connect directly to LiveKit for live audio and video, after a server function has issued a token.</div>
+  </div>
+
+  <div class="grid3">
+    <div class="card"><h4>Learn</h4><p>Courses with sections and lessons, videos and files, quizzes, assignments, progress, certificates and badges.</p></div>
+    <div class="card"><h4>Connect</h4><p>Social feed, stories, comments, follows, direct messages, organizations and practical team projects.</p></div>
+    <div class="card"><h4>Live &amp; earn</h4><p>Live classes in a 3D lecture hall, private 1-to-1 sessions, recordings, paid courses and creator payouts.</p></div>
+  </div>
+</section>
+
+<!-- ============================== 2. STACK ============================== -->
+<section class="page">
+  <h2>2 · Technology stack</h2>
+  <table>
+    <tr><th style="width:22%">Layer</th><th style="width:30%">Technology</th><th>What it does for NESBA</th></tr>
+    <tr><td><b>App framework</b></td><td>Expo SDK 54 · React Native 0.81 · React 19</td><td>One JavaScript codebase that becomes the website, the iPhone app and the Android app.</td></tr>
+    <tr><td><b>Navigation</b></td><td>Expo Router 6</td><td>File-based screens: every file in <code>src/app</code> is a page with its own web address (e.g. <code>/course/123</code>).</td></tr>
+    <tr><td><b>Web rendering</b></td><td>react-native-web</td><td>Turns the phone components into a normal website.</td></tr>
+    <tr><td><b>Database</b></td><td>Supabase Postgres 17</td><td>All data: profiles, courses, posts, messages, payments, projects. Security rules live in the database itself.</td></tr>
+    <tr><td><b>Accounts</b></td><td>Supabase Auth</td><td>Email/password, Google and Apple sign-in, password reset, sessions.</td></tr>
+    <tr><td><b>Files</b></td><td>Supabase Storage</td><td>Avatars, post and story media, lesson files, message attachments, recordings.</td></tr>
+    <tr><td><b>Live updates</b></td><td>Supabase Realtime</td><td>New messages, notifications and live-room changes appear instantly.</td></tr>
+    <tr><td><b>Server code</b></td><td>Supabase Edge Functions (Deno)</td><td>Payments, live-room tokens and moderation, recording, push delivery, clean-up.</td></tr>
+    <tr><td><b>Schedules</b></td><td>pg_cron + pg_net</td><td>Nightly story clean-up; database triggers that call server functions.</td></tr>
+    <tr><td><b>Live sessions</b></td><td>LiveKit Cloud + livekit-client</td><td>Real-time audio, camera, screen sharing, reactions and recording (egress).</td></tr>
+    <tr><td><b>3D lecture hall</b></td><td>three.js · React Three Fiber · drei</td><td>The 3D room shown during live sessions (loaded only when a room opens).</td></tr>
+    <tr><td><b>Payments</b></td><td>Stripe Connect (Express) · Checkout</td><td>Course sales and private sessions; 80% to the creator, 20% platform fee.</td></tr>
+    <tr><td><b>Phone features</b></td><td>expo-notifications · expo-calendar · expo-location · expo-image-picker · expo-av · expo-sqlite</td><td>Push notifications, add-to-calendar, story location, picking media, audio/video playback, saved theme.</td></tr>
+    <tr><td><b>Developer tools</b></td><td>Playwright · Supabase CLI · ESLint · Context7 / Playwright MCP</td><td>Automatic screenshots and error checks, deploying functions, code quality, up-to-date docs.</td></tr>
+  </table>
+  <div class="note">All purchases happen on the <b>website</b>. The phone apps open the website to buy, so Apple and Google take no in-app purchase commission.</div>
+</section>
+
+<!-- ============================== 3. FRONTEND STRUCTURE ============================== -->
+<section class="page">
+  <h2>3 · Frontend: app structure and navigation</h2>
+  <p class="lead">Five tabs at the bottom; every other page opens on top of them.</p>
+
+  <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  Root["Root layout · sign-in state · theme · onboarding · push"]:::root
+  Root --> H & C & L & V & P
+  H["Home"]:::tab --> H1["Post · Story viewer<br/>User profile · Search<br/>Messages · Notifications"]
+  C["Courses"]:::tab --> C1["Course"] --> C2["Lesson<br/>quiz · assignment"] --> C3["Certificate"]
+  L["Learn"]:::tab --> L1["Practical Projects"] --> L2["Project · Showcase<br/>Project certificate"]
+  V["Live"]:::tab --> V1["Live room (3D)<br/>Recordings"]
+  V --> V2["Private sessions"] --> V3["Book · My sessions"]
+  P["Profile"]:::tab --> P1["Creator Studio<br/>courses · prices · codes<br/>payouts · private teaching<br/>events · media"]
+  P --> P2["Edit profile · Dark mode<br/>Privacy · Terms · Feedback"]
+  Root -.-> AUTH["Login · Sign up · Onboarding · Reset password"]
+
+  classDef root fill:#111827,color:#fff,stroke:#111827
+  classDef tab fill:#6C5CE7,color:#fff,stroke:#6C5CE7
+</pre>
+    <div class="caption">Figure 2 · Navigation map (simplified). Every page also has its own web address, so links can be shared.</div>
+  </div>
+
+  <h3>How a screen gets its data</h3>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  Screen["Screen"] --> Lib["Helpers<br/>src/lib"] --> API["Supabase API"] --> RLS{"security<br/>rules"} --> DB[("Data")]
+  Screen --> Ctx["AuthContext<br/>who is signed in"]
+  API -. "realtime" .-> Ctx
+</pre>
+    <div class="caption">Figure 3 · Screens never talk to the database directly; they use small helper modules.</div>
+  </div>
+</section>
+
+<!-- ============================== 4. SCREENS & BUILDING BLOCKS ============================== -->
+<section class="page">
+  <h2>4 · Frontend: screens and shared building blocks</h2>
+  <table>
+    <tr><th style="width:22%">Area</th><th>Screens (file paths under <code>src/app</code>)</th></tr>
+    <tr><td><b>Tabs</b></td><td><code>(tabs)/index</code> Home · <code>courses</code> · <code>learn</code> · <code>live</code> · <code>profile</code></td></tr>
+    <tr><td><b>Accounts</b></td><td><code>login</code> · <code>signup/</code> (student, teacher, organization) · <code>onboarding</code> · <code>reset-password</code> · <code>auth/callback</code> · <code>edit-profile</code> · <code>profile/edit</code></td></tr>
+    <tr><td><b>Social</b></td><td><code>post/[id]</code> · <code>story/[id]</code> · <code>user/[id]</code> · <code>profile/[id]</code> · <code>search</code> · <code>messages/</code> · <code>notifications</code></td></tr>
+    <tr><td><b>Learning</b></td><td><code>course/[id]</code> · <code>lesson/[id]</code> · <code>certificate/[id]</code> · <code>certificates</code> · <code>media</code></td></tr>
+    <tr><td><b>Live</b></td><td><code>live/[roomId]</code> · <code>recordings</code> · <code>tutoring/</code> · <code>tutoring/[id]</code> · <code>bookings</code></td></tr>
+    <tr><td><b>Projects</b></td><td><code>projects/</code> · <code>projects/create</code> · <code>projects/[id]</code> · <code>projects/showcase</code> · <code>projects/certificate/[id]</code></td></tr>
+    <tr><td><b>Creators</b></td><td><code>creator/</code> · <code>creator/courses/</code> · <code>creator/courses/create</code> · <code>creator/payouts</code> · <code>creator/tutoring</code> · <code>creator/events</code> · <code>creator/media</code> · <code>creator/analytics</code> · <code>creator/organizations/create</code></td></tr>
+    <tr><td><b>Organizations</b></td><td><code>organizations</code> · <code>organization/[id]</code> · <code>organization-registration</code></td></tr>
+    <tr><td><b>Other</b></td><td><code>admin</code> · <code>feedback</code> · <code>premium</code> · <code>privacy</code> · <code>terms</code></td></tr>
+  </table>
+
+  <div class="grid2">
+    <div class="card"><h4>Shared logic · <code>src/lib</code></h4><ul>
+      <li><code>supabase</code> client · <code>nesba</code> general data helpers</li>
+      <li><code>payments</code> · <code>tutoring</code> · <code>projects</code> · <code>recordings</code></li>
+      <li><code>lesson-activities</code> (quizzes, assignments)</li>
+      <li><code>upload</code> (progress, 50 MB limit) · <code>story-filters</code> (18 filters)</li>
+      <li><code>push</code> · <code>calendar</code> · <code>location</code> · <code>theme-preference</code></li>
+    </ul></div>
+    <div class="card"><h4>Shared UI · <code>src/components</code></h4><ul>
+      <li>Course cards, badges, avatars, legal page and links</li>
+      <li>Lesson quiz and assignment panels, discount-code manager</li>
+      <li>Live: 3D lecture hall, live chat</li>
+      <li>Emoji picker (full on web, simple grid on phones)</li>
+    </ul></div>
+    <div class="card"><h4>Theme</h4><p>Light by default, optional dark mode. One colour palette in <code>src/constants/theme.js</code>; the choice is saved on the device and read at start-up.</p></div>
+    <div class="card"><h4>Web vs phone files</h4><p>Where web and phone differ, a file comes in two versions: <code>name.web.js</code> and <code>name.native.js</code> (push, calendar, theme storage, emoji picker, 3D hall).</p></div>
+  </div>
+</section>
+
+<!-- ============================== 5. SUPABASE ============================== -->
+<section class="page">
+  <h2>5 · Backend: Supabase services</h2>
+  <p class="lead">Supabase is NESBA’s main backend: database, accounts, files, live updates and server code in one managed service (region: EU · Frankfurt).</p>
+
+  <div class="grid2">
+    <div class="card"><h4>Postgres database</h4><p>About 45 tables. Every table has <b>row-level security</b>: rules in the database decide which rows each signed-in user may read or change, so the app cannot leak data even if a screen has a bug. Sensitive actions (grading, payments, moderation) run as checked database functions.</p></div>
+    <div class="card"><h4>Auth</h4><p>Accounts with email and password, or Google / Apple. Each account has a <code>profiles</code> row with name, photo, role (student, teacher, mentor, organization, admin) and onboarding status. A trigger stops users from changing their own role or verification.</p></div>
+    <div class="card"><h4>Realtime</h4><p>The app subscribes to new messages, notifications and live-room changes, so pop-ups, unread counts and the live room update instantly.</p></div>
+    <div class="card"><h4>Migrations</h4><p>Every database change is a numbered SQL file in <code>src/sql</code> (001 → 034), run in order in the Supabase SQL editor. This is the history of the database.</p></div>
+  </div>
+
+  <h3>Storage buckets</h3>
+  <table>
+    <tr><th>Bucket</th><th>Public?</th><th>Holds</th><th>Who can upload</th></tr>
+    <tr><td><code>avatars</code></td><td><span class="tag green">public</span></td><td>Profile photos</td><td>Owner, in their own folder</td></tr>
+    <tr><td><code>posts</code></td><td><span class="tag green">public</span></td><td>Post photos/videos, comment images</td><td>Owner, in their own folder</td></tr>
+    <tr><td><code>stories</code></td><td><span class="tag green">public</span></td><td>Story media and songs (deleted nightly after expiry)</td><td>Owner, in their own folder</td></tr>
+    <tr><td><code>lesson-files</code></td><td><span class="tag green">public</span></td><td>Lesson videos, audio, documents</td><td>Course teacher</td></tr>
+    <tr><td><code>message-media</code></td><td><span class="tag amber">private</span></td><td>Direct-message attachments (signed links)</td><td>Signed-in users</td></tr>
+    <tr><td><code>nesba-content</code></td><td><span class="tag amber">private</span></td><td>Protected course content</td><td>Creators</td></tr>
+    <tr><td><code>recordings</code></td><td><span class="tag amber">private</span></td><td>Live session recordings (2-hour signed links)</td><td>LiveKit, via server function</td></tr>
+    <tr><td><code>public assets</code></td><td><span class="tag green">public</span></td><td>Shared images</td><td>Admins</td></tr>
+  </table>
+</section>
+
+<!-- ============================== 6. FUNCTIONS ============================== -->
+<section class="page">
+  <h2>6 · Backend: server functions and scheduled jobs</h2>
+  <p class="lead">Code that must not run on a user’s device (secret keys, payments, moderation) runs as Supabase Edge Functions.</p>
+  <table>
+    <tr><th style="width:22%">Function</th><th style="width:20%">Called by</th><th>What it does</th></tr>
+    <tr><td><code>livekit-token</code></td><td>App (live room)</td><td>Checks the user may join, then issues a LiveKit access token with the right permissions (listener or speaker).</td></tr>
+    <tr><td><code>livekit-participants</code></td><td>App</td><td>Lists who is in a live room.</td></tr>
+    <tr><td><code>livekit-moderate</code></td><td>Host</td><td>Mute, remove, invite to speak, move to audience; enforced both in the database and in LiveKit.</td></tr>
+    <tr><td><code>livekit-record</code></td><td>Host / viewers</td><td>Starts and stops a room recording (uploaded to the <code>recordings</code> bucket) and creates watch links.</td></tr>
+    <tr><td><code>stripe-connect</code></td><td>Creators</td><td>Creates the creator’s Stripe Express account, onboarding and dashboard links, payout status.</td></tr>
+    <tr><td><code>stripe-checkout</code></td><td>Learners</td><td>Prices from the database (never from the app), applies discount codes, records a pending purchase or booking, opens Stripe Checkout with the 20% platform fee.</td></tr>
+    <tr><td><code>stripe-webhook</code></td><td>Stripe</td><td>The only place a payment counts as done: enrolls the buyer or confirms the booking and creates the private live event. Verified by Stripe’s signature.</td></tr>
+    <tr><td><code>send-push</code></td><td>Database trigger</td><td>Sends each new notification to the user’s phones through Expo Push, respecting their settings.</td></tr>
+    <tr><td><code>cleanup-stories</code></td><td>pg_cron, nightly</td><td>Deletes expired stories and their files, and leftover files from failed uploads.</td></tr>
+  </table>
+
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  subgraph DBT["Database triggers & schedules"]
+    N["new notification row"] -->|pg_net| SP["send-push"]
+    CRON["03:15 UTC every night"] -->|pg_cron + pg_net| CS["cleanup-stories"]
+    LP["lesson completed / quiz / project done"] --> AW["award badges + certificate"]
+    DM["new direct message"] --> NN["notification row"]
+    LIVE["host goes live"] --> NR["notify registered attendees"]
+  end
+</pre>
+    <div class="caption">Figure 4 · Automatic work done by the database itself.</div>
+  </div>
+
+</section>
+
+<!-- ============================== 7. DATA MODEL ============================== -->
+<section class="page">
+  <h2>7 · Data model</h2>
+  <p class="lead">The main tables, grouped by area. Every table belongs to a user through <code>profiles</code>.</p>
+
+  <div class="hub">profiles <small>· every table belongs to a user</small></div>
+  <div class="domains">
+    <div class="domain"><b>Learning</b><div>courses → course_sections → course_modules (lessons)</div><div>lessons → lesson_content · quiz_questions (+ answer keys) · lesson_assignments (+ submissions)</div><div>enrollments · lesson_progress → certificates · user_badges</div></div>
+    <div class="domain"><b>Social</b><div>posts → post_comments · post_likes</div><div>stories → story_views</div><div>direct_messages · follows</div><div>notifications → push_tokens</div></div>
+    <div class="domain"><b>Live</b><div>events → event_registrations</div><div>live_audio_rooms → participants · live chat</div><div>live_recordings</div></div>
+    <div class="domain"><b>Payments</b><div>creator_payout_accounts</div><div>course_purchases · coupons</div><div>tutoring_offers → tutoring_bookings → tutoring_reviews</div></div>
+    <div class="domain"><b>Groups</b><div>organizations → organization_members</div><div>project_groups → members · posts · tasks</div></div>
+  </div>
+
+</section>
+
+<!-- ============================== 8. ROLES ============================== -->
+<section class="page">
+  <h2>8 · Users, roles and permissions</h2>
+  <table>
+    <tr><th style="width:26%">Can…</th><th>Guest</th><th>Student</th><th>Teacher / Mentor</th><th>Organization</th><th>Admin</th></tr>
+    <tr><td>Browse courses, posts, projects, legal pages</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Post, comment, stories, messages, follow</td><td>–</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Enroll, learn, quizzes, assignments, certificates</td><td>–</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Join live sessions, book private sessions</td><td>–</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Start or join practical projects</td><td>–</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Create courses, events, media; host live rooms</td><td>–</td><td>–</td><td>✓ <span class="small muted">after approval</span></td><td>✓ <span class="small muted">after approval</span></td><td>✓</td></tr>
+    <tr><td>Sell courses &amp; private sessions, discount codes</td><td>–</td><td>–</td><td>✓ <span class="small muted">with Stripe</span></td><td>✓ <span class="small muted">with Stripe</span></td><td>✓</td></tr>
+    <tr><td>Approve creators and organizations, platform metrics</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td></tr>
+  </table>
+  <div class="note">Teachers and organizations sign up like everyone else and request their role. An admin approves it. Users can never give themselves a role: the database blocks it.</div>
+
+  <div class="keep"><h3>9 · Flow: sign-up, login and onboarding</h3>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor U as New user
+  participant App
+  participant Auth as Supabase Auth
+  participant DB as Database
+  U->>App: Choose Student / Teacher / Organization, fill in form
+  App->>Auth: sign up (email + password) or Google / Apple
+  Auth-->>U: confirmation email
+  Auth->>DB: create profile (onboarded = false)
+  U->>App: log in
+  App->>App: onboarding gate sees onboarded = false
+  App->>U: onboarding: goals and role
+  App->>DB: save profile · teachers request creator role
+  DB-->>App: admin approves later → role becomes teacher
+</pre>
+  </div></div>
+</section>
+
+<!-- ============================== 10. POSTS & STORIES ============================== -->
+<section class="page">
+  <h2>10 · Flow: posts, stories and uploads</h2>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant App
+  participant ST as Storage
+  participant DB as Database
+  participant Cron as Nightly job
+  U->>App: pick photo / video (max 50 MB · stories max 45 s)
+  Note over App: iPhone re-encodes video to 720p<br/>story: filter · text · location · song preview
+  App->>ST: upload with progress % (own folder)
+  ST-->>App: public file link
+  App->>DB: insert post or story (text, link, filter, place, song)
+  DB-->>U: appears in the feed / stories row
+  Note over DB: stories expire after 24 h
+  Cron->>ST: 03:15 UTC delete expired story files
+  Cron->>DB: delete expired stories
+</pre>
+  </div>
+  <div class="grid2">
+    <div class="card"><h4>Stories</h4><ul>
+      <li>18 Instagram-style filters, shown the same in editor and viewer</li>
+      <li>“Use my current location” (phone GPS or browser, place name via OpenStreetMap)</li>
+      <li>Song plays while editing; only the first 45 seconds play</li>
+      <li>Views recorded once per viewer</li>
+    </ul></div>
+    <div class="card"><h4>Feed &amp; social</h4><ul>
+      <li>Posts with text, photo, video or link; likes; threaded comments with images</li>
+      <li>@mentions create notifications</li>
+      <li>Follows, profiles, search for people</li>
+      <li>Direct messages with attachments and realtime delivery</li>
+    </ul></div>
+  </div>
+
+  <div class="keep"><h3>11 · Flow: courses, lessons, quizzes and certificates</h3>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  B["Teacher builds course<br/>sections · lessons · files"] --> P["Publish<br/>(free or priced)"]
+  P --> E["Learner enrolls<br/>(or buys)"] --> L["Lesson<br/>videos · files"]
+  L --> Q["Quiz<br/>graded in database"] & AS["Assignment<br/>teacher reviews"]
+  L --> C["Mark complete"] --> PR["Progress %<br/>recomputed"] --> D{"100%?"}
+  D -- yes --> CE["Certificate + badges<br/>+ notification"]
+  Q --> BG["Quiz Ace badge"]
+  C --> SK["Learning streak 🔥"]
+</pre>
+  </div>
+  <div class="note">Quiz answers are stored in a separate table that learners cannot read. The database grades the answers and only then reveals the correct ones.</div></div>
+</section>
+
+<!-- ============================== 12. BUY COURSE ============================== -->
+<section class="page">
+  <h2>12 · Flow: buying a premium course</h2>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor L as Learner (website)
+  participant App
+  participant CO as stripe-checkout
+  participant DB as Database
+  participant S as Stripe
+  participant WH as stripe-webhook
+  actor T as Teacher
+  L->>App: Buy for €X (optional discount code)
+  App->>CO: course id + code
+  CO->>DB: read price, check code, check teacher's Stripe account
+  alt 100% code
+    CO->>DB: free purchase + enroll
+  else paid
+    CO->>DB: pending purchase
+    CO->>S: create Checkout (fee 20% → NESBA, 80% → teacher)
+    S-->>L: payment page (card · iDEAL · Apple/Google Pay)
+    L->>S: pays
+    S->>WH: checkout.session.completed (signed)
+    WH->>DB: purchase = paid · enroll · count code use
+    WH->>DB: notify teacher (sale) and learner (unlocked)
+    S-->>T: payout to bank (Stripe schedule)
+  end
+  App->>DB: polls until enrolled → course unlocks
+</pre>
+  </div>
+  <div class="grid2">
+    <div class="card"><h4>Creator setup</h4><ul>
+      <li>Creator Studio → Payouts → Connect Stripe (Express, NL)</li>
+      <li>Prices can only be set once Stripe can pay the creator</li>
+      <li>Discount codes: % off, one or all courses, expiry, max uses</li>
+    </ul></div>
+    <div class="card"><h4>Safety rules</h4><ul>
+      <li>Learners cannot enroll in a paid course without a paid purchase (database guard)</li>
+      <li>Only the webhook can mark a purchase as paid</li>
+      <li>Phone apps send buyers to the website (no app-store fees)</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============================== 13. PRIVATE SESSIONS ============================== -->
+<section class="page">
+  <h2>13 · Flow: booking a private session</h2>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor St as Student
+  participant App
+  participant CO as stripe-checkout
+  participant S as Stripe
+  participant WH as stripe-webhook
+  participant DB as Database
+  actor T as Teacher
+  T->>DB: publish offer (title · length · price · availability)
+  St->>App: pick day + time, add a note
+  App->>CO: offer + time
+  CO->>DB: check time is free, pending booking
+  CO->>S: Checkout (20% fee)
+  St->>S: pays
+  S->>WH: payment completed
+  WH->>DB: booking confirmed + private event + register student
+  WH->>DB: notify both (push + in-app)
+  St->>App: My sessions → Add to calendar
+  T->>App: Start session (15 min before)
+  App->>DB: live room opens (only these two can join)
+  St->>App: Join session
+  St->>DB: after the session: ★ rating + review
+</pre>
+  </div>
+  <div class="note">Private sessions reuse the live room. The event is marked <b>private</b>, so it is invisible to everyone except the teacher and the student who paid.</div>
+</section>
+
+<!-- ============================== 14. LIVE ============================== -->
+<section class="page">
+  <h2>14 · Flow: live sessions and recordings</h2>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor H as Host
+  actor A as Attendee
+  participant App
+  participant DB as Database
+  participant TK as livekit-token
+  participant LK as LiveKit Cloud
+  participant RC as livekit-record
+  participant ST as Storage
+  H->>DB: Go live (event → live room, attendees notified)
+  H->>TK: token (host: can speak)
+  TK->>LK: connect · 3D lecture hall
+  A->>DB: join room (must be registered)
+  A->>TK: token (listener)
+  A->>DB: ✋ Request to speak
+  DB-->>H: request appears (realtime)
+  H->>DB: Allow → speaker
+  A->>TK: new token (can speak) · mic · camera
+  A->>LK: reactions 👍 ❤️ 👏 (data messages)
+  H->>RC: Record
+  RC->>LK: start room recording
+  H->>RC: Stop
+  LK->>ST: MP4 into private bucket
+  A->>RC: watch link (2 h) from Recordings page
+</pre>
+  </div>
+  <div class="grid3">
+    <div class="card"><h4>Everyone</h4><p class="small">Audio, 3D hall, chat, reactions, request to speak, view shared screen.</p></div>
+    <div class="card"><h4>Speakers</h4><p class="small">Microphone, camera tiles, screen sharing.</p></div>
+    <div class="card"><h4>Host</h4><p class="small">Allow/decline requests, mute, mute all, move to audience, remove, record, end session.</p></div>
+  </div>
+  <p class="footer-note">Live rooms currently run in the web version; the phone apps show a link to the website. Native live rooms need LiveKit’s React Native SDK and a custom app build.</p>
+</section>
+
+<!-- ============================== 15. NOTIFICATIONS ============================== -->
+<section class="page">
+  <h2>15 · Flow: notifications and push</h2>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  EVT["Something happens<br/>message · like · mention · follow · live now ·<br/>sale · booking · review · badge · assignment"] --> ROW["notifications row"]
+  ROW --> RT["Realtime → bell count + pop-up<br/>(web and app, while open)"]
+  ROW -->|"trigger + pg_net"| SP["send-push function"]
+  SP --> PREF{"user allows<br/>this type?"}
+  PREF -- yes --> EXPO["Expo Push service"] --> PH["📱 phone notification"]
+  PH -->|tap| OPEN["opens the right screen<br/>(chat · live room · course · sessions)"]
+  PREF -- no --> X["skipped"]
+</pre>
+  </div>
+  <div class="note">Each phone registers a push token when someone signs in, and removes it when they sign out. Tokens from uninstalled apps are deleted automatically. Push needs the phone app (not the website) and an Expo project ID (<code>eas init</code>).</div>
+
+  <div class="keep"><h3>16 · Flow: practical projects</h3>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  C["Learner starts a project<br/>skills · team size · course"] --> J["Others search & join<br/>(until full or closed)"]
+  J --> W["Team works<br/>discussion · task board<br/>To do → In progress → Done"]
+  W --> F["Lead marks completed<br/>summary + result link"]
+  F --> SC["Public showcase"] & CE["Certificate per member<br/>(shareable · printable)"] & BD["Team Player badge"]
+</pre>
+  </div></div>
+</section>
+
+<!-- ============================== 17. SECURITY ============================== -->
+<section class="page">
+  <h2>17 · Security model</h2>
+  <div class="grid2">
+    <div class="card"><h4>Data access</h4><ul>
+      <li>Row-level security on every table: users only see and change what the rules allow</li>
+      <li>Privileged changes (roles, grading, payments, moderation) only through checked database functions</li>
+      <li>Internal functions are not callable from the API (checked by Supabase’s security advisor)</li>
+    </ul></div>
+    <div class="card"><h4>Accounts</h4><ul>
+      <li>Passwords handled by Supabase Auth (never stored by NESBA)</li>
+      <li>No public “does this email exist?” lookup</li>
+      <li>Users cannot raise their own role or verification</li>
+      <li><span class="tag amber">to do</span> turn on leaked-password protection</li>
+    </ul></div>
+    <div class="card"><h4>Payments</h4><ul>
+      <li>Card and bank details go straight to Stripe; NESBA never sees them</li>
+      <li>Prices come from the database, not from the app</li>
+      <li>Webhook requests must carry Stripe’s signature</li>
+      <li>Return links only to NESBA’s own website</li>
+    </ul></div>
+    <div class="card"><h4>Content &amp; files</h4><ul>
+      <li>Uploads only into the user’s own folder</li>
+      <li>Private files (messages, recordings) via short-lived signed links</li>
+      <li>Locked lessons and paid courses blocked in the database, not only in the app</li>
+      <li>Production builds hide debug logs</li>
+    </ul></div>
+  </div>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  APP["App<br/>public key only"] -->|"user's login token"| API["Supabase API"] --> RLS{"Row-level<br/>security rules"} --> DATA[("Data")]
+  EF["Edge Functions<br/>secret keys"] -->|"after checking the caller"| DATA
+  STRIPE["Stripe"] -->|"signed webhook"| EF
+</pre>
+    <div class="caption">Figure · Two doors into the data: the app (limited by rules) and server functions (which check the caller themselves).</div>
+  </div>
+</section>
+
+<!-- ============================== 18. OPERATIONS ============================== -->
+<section class="page">
+  <h2>18 · Configuration, deployment and operations</h2>
+  <table>
+    <tr><th style="width:24%">Part</th><th style="width:34%">Where it lives</th><th>How it is updated</th></tr>
+    <tr><td><b>Source code</b></td><td>GitHub · <code>aelomerabi-oss/NESBA</code></td><td>Branches + pull requests; current work on <code>claude/features-round-2</code>.</td></tr>
+    <tr><td><b>Website</b></td><td>Vercel or Netlify (to choose)</td><td><code>npm run build:web</code> → <code>dist</code>; routing files already included.</td></tr>
+    <tr><td><b>iPhone / Android apps</b></td><td>Expo EAS → App Store / Google Play</td><td><code>eas build</code> and <code>eas submit</code>; needs Apple ($99/yr) and Google ($25 once) accounts.</td></tr>
+    <tr><td><b>Database</b></td><td>Supabase project <code>xrgyqsfnaquypahiyqzb</code></td><td>Run the next <code>src/sql/0NN_*.sql</code> file in the SQL editor.</td></tr>
+    <tr><td><b>Server functions</b></td><td><code>supabase/functions/*</code></td><td>Deploy with the Supabase CLI or tooling; settings in <code>supabase/config.toml</code>.</td></tr>
+    <tr><td><b>Secrets</b></td><td>Supabase → Edge Functions → Secrets</td><td>Changed in the dashboard; never committed to GitHub.</td></tr>
+    <tr><td><b>Payments</b></td><td>Stripe dashboard (sandbox now)</td><td>Webhook endpoint → <code>stripe-webhook</code>; switch to live keys at launch.</td></tr>
+    <tr><td><b>Live video</b></td><td>LiveKit Cloud</td><td>URL and keys as Supabase secrets.</td></tr>
+  </table>
+
+  <h3>Secrets (in Supabase, never in the app)</h3>
+  <p class="small"><code>STRIPE_SECRET_KEY</code> · <code>STRIPE_WEBHOOK_SECRET</code> · <code>SITE_URL</code> · <code>LIVEKIT_URL</code> · <code>LIVEKIT_API_KEY</code> · <code>LIVEKIT_API_SECRET</code> · <code>RECORDINGS_S3_ACCESS_KEY</code> · <code>RECORDINGS_S3_SECRET_KEY</code>. The app only contains the public Supabase key.</p>
+
+  <h3>Developer tools</h3>
+  <div class="grid2">
+    <div class="card"><h4>Checks</h4><ul>
+      <li><code>npm run shots</code>: opens pages in Chrome, saves screenshots, reports errors</li>
+      <li>ESLint for code quality</li>
+      <li>Supabase security advisor after every database change</li>
+    </ul></div>
+    <div class="card"><h4>Local development</h4><ul>
+      <li><code>npx expo start</code>: web at <code>localhost:8081</code>, phones via Expo Go</li>
+      <li><code>npx supabase</code> CLI for functions and secrets</li>
+      <li>Later: Docker for a local test database and Strix security scans</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============================== 19. CAPACITY ============================== -->
+<section class="page">
+  <h2>19 · Capacity and costs (year 1, ~79 users)</h2>
+  <table>
+    <tr><th>Resource</th><th>Estimated need</th><th>Supabase Free</th><th>Supabase Pro (~$25/mo)</th></tr>
+    <tr><td>Database</td><td>50–200 MB</td><td><span class="tag green">500 MB</span></td><td><span class="tag green">8 GB</span></td></tr>
+    <tr><td>Files (posts, lessons, recordings)</td><td>45–100 GB</td><td><span class="tag red">1 GB</span></td><td><span class="tag green">100 GB + ~$0.02/GB</span></td></tr>
+    <tr><td>Largest single file</td><td>recordings 300–700 MB/hour</td><td><span class="tag red">50 MB</span></td><td><span class="tag green">configurable</span></td></tr>
+    <tr><td>Video downloads / month</td><td>50–150 GB</td><td><span class="tag red">5 GB</span></td><td><span class="tag green">250 GB</span></td></tr>
+    <tr><td>Backups · no pausing</td><td>needed with real users</td><td><span class="tag red">no</span></td><td><span class="tag green">daily backups</span></td></tr>
+  </table>
+  <div class="grid3">
+    <div class="card"><h4>LiveKit</h4><p class="small">Audio sessions for this group size fit the lowest tiers; cameras and recording cost more per minute.</p></div>
+    <div class="card"><h4>Stripe</h4><p class="small">No monthly fee: a fee per payment plus a small monthly fee per paid creator account.</p></div>
+    <div class="card"><h4>Hosting</h4><p class="small">Vercel Pro (~$20/mo) or Netlify; the free Vercel plan does not allow commercial use.</p></div>
+  </div>
+  <div class="note">Before go-live: upgrade Supabase to <b>Pro</b>. If recordings grow large, move them to Cloudflare R2 or a video service (Mux / Cloudflare Stream). No Docker or Kubernetes is needed.</div>
+
+  <h2 style="margin-top:8mm">20 · Go-live checklist</h2>
+  <ol class="steps">
+    <li>Register the company; activate the Stripe account (verify business, bank).</li>
+    <li>Stripe live mode: new webhook (same URL, 5 events); replace <code>STRIPE_SECRET_KEY</code> and <code>STRIPE_WEBHOOK_SECRET</code>.</li>
+    <li>Choose hosting and domain; set <code>SITE_URL</code>; add the domain to Supabase Auth URLs.</li>
+    <li>Upgrade Supabase to Pro; turn on leaked-password protection.</li>
+    <li>Fill in the contact email on the legal pages; have Privacy and Terms reviewed.</li>
+    <li>Recordings: S3 access keys in Supabase; enable recording in LiveKit.</li>
+    <li>Phone apps: <code>eas init</code>, test builds, App Store / Google Play listings.</li>
+    <li>Install Docker; local test database; Strix security scan.</li>
+    <li>End-to-end tests: sign-up, course purchase + refund, private session, live room, push.</li>
+    <li>Closed beta with a small group; collect feedback; then open to the public.</li>
+  </ol>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    securityLevel: 'loose',
+    flowchart: { htmlLabels: true, curve: 'basis', useMaxWidth: true },
+    sequence: { useMaxWidth: true, mirrorActors: false, actorMargin: 30, messageMargin: 30, boxMargin: 6, noteMargin: 8, actorFontSize: 15, messageFontSize: 15, noteFontSize: 14, width: 150, wrap: true },
+    er: { useMaxWidth: true },
+    themeVariables: {
+      fontFamily: 'Segoe UI, Arial, sans-serif', fontSize: '16px',
+      primaryColor: '#EEEBFD', primaryBorderColor: '#6C5CE7', primaryTextColor: '#111827',
+      lineColor: '#667085', secondaryColor: '#E6F7F5', tertiaryColor: '#F7F8FA',
+      actorBkg: '#EEEBFD', actorBorder: '#6C5CE7', signalColor: '#374151', noteBkgColor: '#FFF7E6', noteBorderColor: '#C9A227'
+    }
+  });
+  mermaid.run().then(() => { document.body.dataset.ready = '1'; })
+    .catch((e) => { document.body.dataset.ready = 'error'; document.body.dataset.err = String(e); });
+</script>
+</body>
+</html>
