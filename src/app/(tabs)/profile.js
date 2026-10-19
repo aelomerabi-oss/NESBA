@@ -37,6 +37,8 @@ export default function ProfileScreen() {
   const rows = [
     { icon: 'school-outline', label: 'Your Learning', route: '/learn' },
     { icon: 'construct-outline', label: 'Practical Projects', route: '/projects' },
+    { icon: 'person-circle-outline', label: 'Private Sessions', route: '/tutoring' },
+    { icon: 'calendar-outline', label: 'My Sessions', route: '/bookings' },
     { icon: 'create-outline', label: 'Creator Studio', route: '/creator' },
     { icon: 'person-outline', label: 'Edit Profile', route: '/edit-profile' },
     { icon: 'eye-outline', label: 'View Public Profile', route: user?.id ? `/user/${user.id}` : null },

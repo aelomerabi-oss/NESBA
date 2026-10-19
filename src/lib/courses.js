@@ -15,7 +15,7 @@ export async function getCourses() {
 
     thumbnail: course.thumbnail_url,
     teacher: course.teacher_name,
-    isPremium: !!course.is_premium,
+    isPremium: (course.price_cents || 0) > 0,
 
     lessons: course.lesson_count || 0,
 

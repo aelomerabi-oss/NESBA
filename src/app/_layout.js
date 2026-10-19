@@ -125,6 +125,11 @@ export default function RootLayout() {
         <Stack.Screen name="creator/analytics/index" options={{ title: 'Analytics' }} />
         <Stack.Screen name="creator/courses/index" options={{ title: 'My Courses' }} />
         <Stack.Screen name="creator/courses/create" options={{ title: 'Create Course' }} />
+        <Stack.Screen name="creator/payouts" options={{ title: 'Payouts' }} />
+        <Stack.Screen name="creator/tutoring" options={{ title: 'Private Teaching' }} />
+        <Stack.Screen name="tutoring/index" options={{ title: 'Private Sessions' }} />
+        <Stack.Screen name="tutoring/[id]" options={{ title: 'Book a Session' }} />
+        <Stack.Screen name="bookings" options={{ title: 'My Sessions' }} />
         <Stack.Screen name="creator/events/index" options={{ title: 'Events', headerShown: false }} />
         <Stack.Screen name="creator/media/index" options={{ title: 'Media', headerShown: false }} />
         <Stack.Screen name="creator/organizations/create" options={{ title: 'Create Organization', headerShown: false }} />

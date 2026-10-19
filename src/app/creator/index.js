@@ -88,6 +88,34 @@ export default function CreatorStudio() {
         }
       />
 
+      {/* PRIVATE TEACHING */}
+
+      <StudioCard
+        icon="person-circle-outline"
+        title="Private Teaching"
+        description="Offer paid 1-to-1 live sessions. Learners book a time and pay up front."
+        primaryLabel="Manage Offers"
+        secondaryLabel="Booked Sessions"
+        onPrimary={() =>
+          router.push('/creator/tutoring')
+        }
+        onSecondary={() =>
+          router.push('/bookings')
+        }
+      />
+
+      {/* PAYOUTS */}
+
+      <StudioCard
+        icon="card-outline"
+        title="Payouts"
+        description="Connect Stripe to sell premium courses and private sessions, and see your earnings."
+        primaryLabel="Open Payouts"
+        onPrimary={() =>
+          router.push('/creator/payouts')
+        }
+      />
+
       {/* ANALYTICS */}
 
       <StudioCard

@@ -26,3 +26,23 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/livekit-moderate/deno.json"
 entrypoint = "./functions/livekit-moderate/index.ts"
+
+# Payments. Each function checks the caller itself; the webhook is called by
+# Stripe and is authenticated by Stripe's signature instead of a JWT.
+[functions.stripe-connect]
+enabled = true
+verify_jwt = false
+import_map = "./functions/stripe-connect/deno.json"
+entrypoint = "./functions/stripe-connect/index.ts"
+
+[functions.stripe-checkout]
+enabled = true
+verify_jwt = false
+import_map = "./functions/stripe-checkout/deno.json"
+entrypoint = "./functions/stripe-checkout/index.ts"
+
+[functions.stripe-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/stripe-webhook/deno.json"
+entrypoint = "./functions/stripe-webhook/index.ts"
