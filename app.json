@@ -31,6 +31,12 @@
     "plugins": [
       "expo-router",
       "expo-audio",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "NESBA uses your location only when you choose to add it to a story."
+        }
+      ],
       "expo-web-browser"
     ],
     "experiments": {

@@ -3852,6 +3852,11 @@ export async function markStoryViewed({
         {
           onConflict:
             'story_id,viewer_id',
+
+          // Repeat views are skipped. Updating them would need an
+          // UPDATE policy on story_views, which viewers do not have.
+          ignoreDuplicates:
+            true,
         }
       );
 

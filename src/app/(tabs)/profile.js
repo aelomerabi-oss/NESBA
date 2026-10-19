@@ -1,11 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ProfileScreen() {
-  const { user, session, signOut } = useAuth();
+  const { user, session, signOut, refreshProfile } = useAuth();
+
+  // Pick up changes made on the Edit Profile screen, such as a new photo.
+  useFocusEffect(
+    // refreshProfile is a new function on every render, so depending on it
+    // would refresh in a loop; the user id is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useCallback(() => {
+      if (session) refreshProfile();
+    }, [session?.user?.id])
+  );
 
   const rows = [
     { icon: 'school-outline', label: 'Your Learning', route: '/learn' },
@@ -50,11 +61,15 @@ export default function ProfileScreen() {
       contentContainerStyle={{ paddingBottom: spacing.xl }}
     >
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {user.name.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        {user.avatarUrl ? (
+          <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {user.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
 
         <Text style={styles.name}>{user.name}</Text>
         <Text style={styles.email}>{user.email}</Text>

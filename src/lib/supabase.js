@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 
 // This key is the "publishable" / anon key — it is safe to keep in client code.
 // Never put the secret/service_role key here or anywhere in the app.
-const supabaseUrl = 'https://xrgyqsfnaquypahiyqzb.supabase.co';
-const supabaseAnonKey = 'sb_publishable_fswYVlX0w5nnnOLdvKT6pA_NUdIPMzh';
+export const supabaseUrl = 'https://xrgyqsfnaquypahiyqzb.supabase.co';
+export const supabaseAnonKey = 'sb_publishable_fswYVlX0w5nnnOLdvKT6pA_NUdIPMzh';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

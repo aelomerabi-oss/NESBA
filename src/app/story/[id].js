@@ -34,6 +34,12 @@ import {
     markStoryViewed,
 } from '../../lib/nesba';
 
+import {
+  STORY_MAX_SECONDS,
+  filterMediaStyle,
+  filterTintStyle,
+} from '../../lib/story-filters';
+
 
 const {
   width,
@@ -504,6 +510,16 @@ export default function StoryScreen() {
           { shouldPlay: true, isLooping: true }
         );
 
+        // A story's song plays for at most STORY_MAX_SECONDS, then loops.
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (
+            status.isLoaded &&
+            status.positionMillis >= STORY_MAX_SECONDS * 1000
+          ) {
+            sound.setPositionAsync(0).catch(() => {});
+          }
+        });
+
         if (cancelled) {
           await sound.unloadAsync();
           return;
@@ -796,17 +812,18 @@ export default function StoryScreen() {
             <Video
               key={String(currentStory.id)}
               source={{ uri: media }}
-              style={styles.media}
+              style={[styles.media, filterMediaStyle(currentStory.filter_name)]}
               resizeMode="contain"
               shouldPlay
               isLooping
+              isMuted={!!currentStory.audio_url}
               useNativeControls={false}
             />
           ) : (
             <Image
               key={String(currentStory.id)}
               source={{ uri: media }}
-              style={styles.media}
+              style={[styles.media, filterMediaStyle(currentStory.filter_name)]}
               resizeMode="contain"
             />
           )
@@ -870,13 +887,14 @@ export default function StoryScreen() {
       {currentStory.filter_name && currentStory.filter_name !== 'normal' ? (
         <View
           pointerEvents="none"
-          style={[styles.storyFilterOverlay, styles[`filter_${currentStory.filter_name}`]]}
+          style={[styles.storyFilterOverlay, filterTintStyle(currentStory.filter_name)]}
         />
       ) : null}
 
-      {currentStory.overlay_text ? (
+      {/* The story editor saves its text as caption. */}
+      {currentStory.overlay_text || currentStory.caption ? (
         <View pointerEvents="none" style={styles.storyTextOverlay}>
-          <Text style={styles.storyTextOverlayText}>{currentStory.overlay_text}</Text>
+          <Text style={styles.storyTextOverlayText}>{currentStory.overlay_text || currentStory.caption}</Text>
         </View>
       ) : null}
 
@@ -1181,11 +1199,6 @@ const styles =
       bottom: 0,
     },
 
-    filter_warm: { backgroundColor: 'rgba(255,150,70,0.20)' },
-    filter_cool: { backgroundColor: 'rgba(80,150,255,0.18)' },
-    filter_mono: { backgroundColor: 'rgba(40,40,40,0.40)' },
-    filter_dream: { backgroundColor: 'rgba(255,160,220,0.16)' },
-    filter_vivid: { backgroundColor: 'rgba(255,60,60,0.12)' },
 
     storyTextOverlay: {
       position: 'absolute',
