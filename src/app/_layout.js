@@ -3,7 +3,7 @@ import '../lib/web-alert';
 import { router, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { colors } from '../constants/theme';
+import { colors, isDarkTheme } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
 // Screens a signed-in user may be on before finishing onboarding.
@@ -34,7 +34,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <OnboardingGate />
-      <StatusBar style="light" />
+      <StatusBar style={isDarkTheme ? 'light' : 'dark'} />
 
       <Stack
         screenOptions={{

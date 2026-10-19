@@ -1,9 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../constants/theme';
+import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { colors, isDarkTheme, radius, spacing, typography } from '../../constants/theme';
+import { saveThemeNameAndReload } from '../../lib/theme-preference';
 import { useAuth } from '../../context/AuthContext';
+
+function DarkModeRow() {
+  return (
+    <View style={[styles.row, styles.lastRow]}>
+      <Ionicons name="moon-outline" size={20} color={colors.textMuted} />
+      <Text style={styles.rowLabel}>Dark mode</Text>
+      <Switch
+        value={isDarkTheme}
+        onValueChange={(on) => saveThemeNameAndReload(on ? 'dark' : 'light')}
+        trackColor={{ true: colors.primary, false: colors.border }}
+        thumbColor="#fff"
+      />
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const { user, session, signOut, refreshProfile } = useAuth();
@@ -46,6 +62,10 @@ export default function ProfileScreen() {
         <Pressable style={styles.loginBtn} onPress={() => router.push('/login')}>
           <Text style={styles.loginBtnText}>Log In / Sign Up</Text>
         </Pressable>
+
+        <View style={[styles.section, styles.guestSettings]}>
+          <DarkModeRow />
+        </View>
       </View>
     );
   }
@@ -97,6 +117,10 @@ export default function ProfileScreen() {
             />
           </Pressable>
         ))}
+      </View>
+
+      <View style={[styles.section, styles.settingsSection]}>
+        <DarkModeRow />
       </View>
 
       <Pressable style={styles.logoutBtn} onPress={signOut}>
@@ -217,6 +241,19 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+
+  lastRow: {
+    borderBottomWidth: 0,
+  },
+
+  settingsSection: {
+    marginTop: spacing.md,
+  },
+
+  guestSettings: {
+    marginTop: spacing.xl,
+    alignSelf: 'stretch',
   },
 
   rowLabel: {

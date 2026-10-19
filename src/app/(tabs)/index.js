@@ -52,6 +52,10 @@ import {
 } from '../../lib/story-filters';
 
 import {
+  colors as theme,
+} from '../../constants/theme';
+
+import {
   getCurrentPlaceName,
 } from '../../lib/location';
 
@@ -62,20 +66,21 @@ import {
 } from '../../lib/upload';
 
 
+// Home follows the app-wide light/dark palette.
 const colors = {
-  background: '#F7F8FA',
-  backgroundSoft: '#F1F3F8',
-  surface: '#FFFFFF',
-  card: '#FFFFFF',
-  primary: '#1769E0',
-  primarySoft: '#EAF2FF',
-  text: '#111827',
-  textSecondary: '#667085',
-  textMuted: '#98A2B3',
-  border: '#E4E7EC',
-  success: '#12B76A',
-  warning: '#F79009',
-  danger: '#F04438',
+  background: theme.background,
+  backgroundSoft: theme.surfaceAlt,
+  surface: theme.surface,
+  card: theme.surface,
+  primary: theme.primary,
+  primarySoft: theme.primarySoft,
+  text: theme.text,
+  textSecondary: theme.textSecondary,
+  textMuted: theme.textMuted,
+  border: theme.border,
+  success: theme.success,
+  warning: theme.warning,
+  danger: theme.danger,
   white: '#FFFFFF',
   black: '#000000',
 };

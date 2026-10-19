@@ -1,17 +1,49 @@
-export const colors = {
+import { getStoredThemeName } from '../lib/theme-preference';
+
+const light = {
+  background: '#F7F8FA',
+  surface: '#FFFFFF',
+  surfaceAlt: '#F1F3F8',
+  primary: '#6C5CE7',
+  primaryLight: '#8A7CF0',
+  primarySoft: '#EEEBFD',
+  accent: '#00B8A3',
+  premium: '#F5B942',
+  text: '#111827',
+  textSecondary: '#475467',
+  textMuted: '#667085',
+  border: '#E4E7EC',
+  danger: '#F04438',
+  success: '#12B76A',
+  warning: '#F79009',
+};
+
+const dark = {
   background: '#0F1220',
   surface: '#181C2E',
   surfaceAlt: '#222741',
   primary: '#6C5CE7',
   primaryLight: '#8A7CF0',
+  primarySoft: '#2A2550',
   accent: '#00D9C0',
   premium: '#F5B942',
   text: '#F5F6FA',
+  textSecondary: '#C3C7D6',
   textMuted: '#9AA0B4',
   border: '#2C3150',
   danger: '#FF6B6B',
   success: '#3DDC97',
+  warning: '#F79009',
 };
+
+// Light is the default. The choice is read once at startup because styles are
+// created when each screen is imported; switching saves and reloads the app.
+export const themeName =
+  getStoredThemeName() === 'dark' ? 'dark' : 'light';
+
+export const isDarkTheme = themeName === 'dark';
+
+export const colors = isDarkTheme ? dark : light;
 
 export const spacing = {
   xs: 4,
