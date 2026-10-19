@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice, startCheckout } from '../../lib/payments';
-import { getOffer } from '../../lib/tutoring';
+import { getOffer, getTeacherReviews } from '../../lib/tutoring';
 import PersonAvatar from '../../components/PersonAvatar';
 
 const DAYS_AHEAD = 21;
@@ -27,6 +27,7 @@ export default function OfferScreen() {
   const { session } = useAuth();
 
   const [offer, setOffer] = useState(null);
+  const [reviews, setReviews] = useState({ reviews: [], average: null });
   const [loading, setLoading] = useState(true);
   const [day, setDay] = useState(null);
   const [time, setTime] = useState(null);
@@ -36,7 +37,10 @@ export default function OfferScreen() {
 
   useEffect(() => {
     getOffer(id)
-      .then(setOffer)
+      .then((row) => {
+        setOffer(row);
+        if (row) getTeacherReviews(row.teacher_id).then(setReviews).catch(() => {});
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
@@ -120,6 +124,12 @@ export default function OfferScreen() {
       </View>
       <Text style={styles.price}>{formatPrice(offer.price_cents, offer.currency)}</Text>
 
+      {reviews.average !== null && (
+        <Text style={styles.rating}>
+          ★ {reviews.average.toFixed(1)} · {reviews.reviews.length} {reviews.reviews.length === 1 ? 'review' : 'reviews'}
+        </Text>
+      )}
+
       {!!offer.description && <Text style={styles.description}>{offer.description}</Text>}
 
       {!!offer.availability && (
@@ -191,6 +201,19 @@ export default function OfferScreen() {
           )}
         </>
       )}
+
+      {reviews.reviews.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>What learners say</Text>
+          {reviews.reviews.slice(0, 5).map((r) => (
+            <View key={r.id} style={styles.review}>
+              <Text style={styles.reviewStars}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</Text>
+              {!!r.review && <Text style={styles.reviewText}>{r.review}</Text>}
+              <Text style={styles.muted}>{r.student?.full_name || 'Learner'} · {new Date(r.created_at).toLocaleDateString()}</Text>
+            </View>
+          ))}
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -204,6 +227,10 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   muted: { ...typography.caption, lineHeight: 19 },
   price: { ...typography.h1, color: colors.primary, marginTop: spacing.sm },
+  rating: { ...typography.body, color: colors.premium, fontWeight: '800', marginTop: 6 },
+  review: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm, gap: 4 },
+  reviewStars: { color: colors.premium, fontSize: 16 },
+  reviewText: { ...typography.body, fontSize: 14 },
   description: { ...typography.body, color: colors.textSecondary, lineHeight: 22, marginTop: spacing.md },
   availability: { flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: colors.primarySoft, borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.md },
   availabilityText: { ...typography.caption, color: colors.text, flex: 1 },

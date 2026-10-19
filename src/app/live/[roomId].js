@@ -16,6 +16,7 @@ import {
   updateMyLiveParticipation,
 } from '../../lib/nesba';
 import LiveChat from '../../components/live/LiveChat';
+import { isRoomRecording, startRecording, stopRecording } from '../../lib/recordings';
 
 const POLL_MS = 8000;
 
@@ -62,6 +63,7 @@ export default function LiveRoomScreen() {
   // userId -> MediaStreamTrack for everyone whose camera is on.
   const [cameraTracks, setCameraTracks] = useState(new Map());
   const [reactions, setReactions] = useState([]);
+  const [recording, setRecording] = useState(false);
 
   // Read through a ref so the profile loading later does not rejoin the room.
   const displayNameRef = useRef(displayName);
@@ -399,6 +401,29 @@ export default function LiveRoomScreen() {
     if (action === 'remove') setSelectedUserId(null);
   });
 
+  // Everyone sees the REC badge; only the host can start or stop it.
+  useEffect(() => {
+    if (status !== 'connected') return undefined;
+    let active = true;
+    const check = () => isRoomRecording(roomId).then((on) => active && setRecording(on)).catch(() => {});
+    check();
+    const timer = setInterval(check, POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [status, roomId]);
+
+  const toggleRecording = () => run(async () => {
+    if (recording) {
+      await stopRecording(roomId);
+      setRecording(false);
+    } else {
+      await startRecording(roomId);
+      setRecording(true);
+    }
+  });
+
   // Listeners waiting for the host to let them speak.
   const requests = people.filter((p) => p.hand_raised && p.role === 'listener');
 
@@ -410,6 +435,7 @@ export default function LiveRoomScreen() {
   });
 
   const endSession = () => run(async () => {
+    if (recording) await stopRecording(roomId).catch(() => {});
     await endLiveRoom(roomId);
     leftRef.current = true;
     disconnect();
@@ -501,6 +527,7 @@ export default function LiveRoomScreen() {
 
       <View style={styles.banner}>
         <View style={styles.liveTag}><Text style={styles.liveText}>LIVE</Text></View>
+        {recording && <View style={styles.recTag}><Text style={styles.liveText}>● REC</Text></View>}
         <Text style={styles.bannerTitle} numberOfLines={1}>{title}</Text>
         <Text style={styles.bannerText}>
           {status === 'connecting' ? 'Connecting…' : `${people.length} in the room`}
@@ -638,6 +665,16 @@ export default function LiveRoomScreen() {
 
         {isHost && (
           <ControlButton disabled={working} icon="volume-mute" label="Mute all" onPress={muteAll} />
+        )}
+
+        {isHost && (
+          <ControlButton
+            disabled={working || status !== 'connected'}
+            active={recording}
+            icon={recording ? 'stop-circle-outline' : 'radio-button-on'}
+            label={recording ? 'Stop recording' : 'Record'}
+            onPress={toggleRecording}
+          />
         )}
 
         {canPublish && (
@@ -790,6 +827,7 @@ const styles = StyleSheet.create({
   bannerText: { ...typography.caption, marginLeft: 'auto' },
   liveTag: { backgroundColor: colors.danger, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
   liveText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  recTag: { backgroundColor: '#B42318', borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
   error: { ...typography.caption, color: colors.danger, marginBottom: spacing.sm },
   reconnect: { alignSelf: 'flex-start', marginBottom: spacing.sm },
   audioTap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm },

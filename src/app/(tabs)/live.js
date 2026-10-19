@@ -5,6 +5,19 @@ import { router } from 'expo-router';
 import { colors, spacing, typography, radius } from '../../constants/theme';
 import { getEvents, getMyEventRegistrations, toggleEventRegistration, startLiveRoom } from '../../lib/nesba';
 import { useAuth } from '../../context/AuthContext';
+import { addToCalendar } from '../../lib/calendar';
+import { SITE_URL } from '../../lib/payments';
+
+const ONE_HOUR = 60 * 60 * 1000;
+
+const saveToCalendar = (event) =>
+  addToCalendar({
+    title: event.title,
+    startsAt: event.starts_at,
+    endsAt: event.ends_at || new Date(new Date(event.starts_at).getTime() + ONE_HOUR).toISOString(),
+    notes: event.description,
+    url: `${SITE_URL}/live`,
+  }).catch((error) => Alert.alert('Could not add to calendar', error.message));
 
 export default function LiveScreen() {
   const { session, user } = useAuth();
@@ -79,6 +92,11 @@ export default function LiveScreen() {
             <Pressable style={[styles.registerButton, isRegistered && styles.registeredButton]} onPress={() => register(item)}><Text style={styles.registerText}>{isRegistered ? 'Registered' : 'Register'}</Text></Pressable>
             {(isLive || isRegistered) && <Pressable style={styles.joinButton} onPress={() => join(item)}><Text style={styles.joinText}>{item.liveRoom ? 'Join live room' : 'Join'}</Text></Pressable>}
           </>}
+          {!isLive && (isHost || isRegistered) && (
+            <Pressable style={styles.calendarButton} onPress={() => saveToCalendar(item)} accessibilityLabel="Add to calendar">
+              <Ionicons name="calendar-number-outline" size={18} color={colors.primary} />
+            </Pressable>
+          )}
         </View>
       </View>
     </View>;
@@ -86,10 +104,14 @@ export default function LiveScreen() {
 
   return <View style={styles.container}>
     <View style={styles.headerRow}><View><Text style={styles.header}>Live & Events</Text><Text style={styles.subheader}>Learn together in real time.</Text></View>{['teacher', 'mentor', 'organization', 'admin'].includes(user.role) && <Pressable style={styles.createButton} onPress={() => router.push('/creator/events')}><Ionicons name="add" size={18} color="#fff" /></Pressable>}</View>
+    <View style={styles.shortcuts}>
+      <Pressable style={styles.shortcut} onPress={() => router.push(userId ? '/recordings' : '/login')}><Ionicons name="play-circle-outline" size={16} color={colors.primary} /><Text style={styles.shortcutText}>Recordings</Text></Pressable>
+      <Pressable style={styles.shortcut} onPress={() => router.push('/tutoring')}><Ionicons name="person-circle-outline" size={16} color={colors.primary} /><Text style={styles.shortcutText}>1-to-1 sessions</Text></Pressable>
+    </View>
     {loading ? <View style={styles.center}><ActivityIndicator color={colors.primary} /></View> : <FlatList data={events} keyExtractor={(item) => item.id} renderItem={renderEvent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.primary} />} contentContainerStyle={events.length ? styles.list : styles.empty} ListEmptyComponent={<View><Ionicons name="calendar-outline" size={42} color={colors.textMuted} style={{ alignSelf: 'center' }} /><Text style={styles.emptyTitle}>No events scheduled</Text><Text style={styles.emptyText}>Check back soon for live classes, workshops, and webinars.</Text></View>} />}
   </View>;
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:colors.background,paddingHorizontal:spacing.md},center:{flex:1,alignItems:'center',justifyContent:'center'},headerRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingTop:spacing.lg,paddingBottom:spacing.md},header:{...typography.h1,fontSize:22},subheader:{...typography.caption,marginTop:3},createButton:{width:38,height:38,borderRadius:19,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},list:{paddingBottom:spacing.xl},card:{flexDirection:'row',gap:spacing.sm,backgroundColor:colors.surface,borderColor:colors.border,borderWidth:1,borderRadius:radius.md,padding:spacing.md,marginBottom:spacing.sm},iconWrap:{width:44,height:44,borderRadius:radius.sm,backgroundColor:colors.surfaceAlt,alignItems:'center',justifyContent:'center'},iconWrapLive:{borderWidth:1,borderColor:colors.accent},cardContent:{flex:1},titleRow:{flexDirection:'row',alignItems:'center',gap:spacing.xs,flexWrap:'wrap'},eventTitle:{...typography.body,fontWeight:'700',flexShrink:1},meta:{...typography.caption,marginTop:3},description:{...typography.caption,color:colors.textMuted,marginTop:spacing.xs,lineHeight:18},liveTag:{backgroundColor:colors.danger,borderRadius:radius.pill,paddingHorizontal:7,paddingVertical:2},liveText:{color:'#fff',fontSize:10,fontWeight:'800'},actions:{flexDirection:'row',gap:spacing.sm,marginTop:spacing.sm},registerButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:13,paddingVertical:8},registeredButton:{backgroundColor:colors.success},registerText:{color:'#fff',fontSize:12,fontWeight:'700'},joinButton:{borderColor:colors.primaryLight,borderWidth:1,borderRadius:radius.pill,paddingHorizontal:13,paddingVertical:8},joinText:{color:colors.primaryLight,fontSize:12,fontWeight:'700'},empty:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl},emptyTitle:{...typography.h2,textAlign:'center',fontSize:18,marginTop:spacing.sm},emptyText:{...typography.body,color:colors.textMuted,textAlign:'center',lineHeight:21,marginTop:spacing.xs}
+  container:{flex:1,backgroundColor:colors.background,paddingHorizontal:spacing.md},center:{flex:1,alignItems:'center',justifyContent:'center'},headerRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingTop:spacing.lg,paddingBottom:spacing.md},header:{...typography.h1,fontSize:22},subheader:{...typography.caption,marginTop:3},createButton:{width:38,height:38,borderRadius:19,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},list:{paddingBottom:spacing.xl},card:{flexDirection:'row',gap:spacing.sm,backgroundColor:colors.surface,borderColor:colors.border,borderWidth:1,borderRadius:radius.md,padding:spacing.md,marginBottom:spacing.sm},iconWrap:{width:44,height:44,borderRadius:radius.sm,backgroundColor:colors.surfaceAlt,alignItems:'center',justifyContent:'center'},iconWrapLive:{borderWidth:1,borderColor:colors.accent},cardContent:{flex:1},titleRow:{flexDirection:'row',alignItems:'center',gap:spacing.xs,flexWrap:'wrap'},eventTitle:{...typography.body,fontWeight:'700',flexShrink:1},meta:{...typography.caption,marginTop:3},description:{...typography.caption,color:colors.textMuted,marginTop:spacing.xs,lineHeight:18},liveTag:{backgroundColor:colors.danger,borderRadius:radius.pill,paddingHorizontal:7,paddingVertical:2},liveText:{color:'#fff',fontSize:10,fontWeight:'800'},actions:{flexDirection:'row',gap:spacing.sm,marginTop:spacing.sm},registerButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:13,paddingVertical:8},registeredButton:{backgroundColor:colors.success},registerText:{color:'#fff',fontSize:12,fontWeight:'700'},joinButton:{borderColor:colors.primaryLight,borderWidth:1,borderRadius:radius.pill,paddingHorizontal:13,paddingVertical:8},joinText:{color:colors.primaryLight,fontSize:12,fontWeight:'700'},calendarButton:{borderColor:colors.border,borderWidth:1,borderRadius:radius.pill,paddingHorizontal:10,justifyContent:'center'},shortcuts:{flexDirection:'row',gap:spacing.sm,marginBottom:spacing.md},shortcut:{flexDirection:'row',alignItems:'center',gap:6,backgroundColor:colors.primarySoft,borderRadius:radius.pill,paddingHorizontal:12,paddingVertical:7},shortcutText:{color:colors.primary,fontWeight:'700',fontSize:13},empty:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl},emptyTitle:{...typography.h2,textAlign:'center',fontSize:18,marginTop:spacing.sm},emptyText:{...typography.body,color:colors.textMuted,textAlign:'center',lineHeight:21,marginTop:spacing.xs}
 });

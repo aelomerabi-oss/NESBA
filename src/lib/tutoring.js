@@ -92,6 +92,70 @@ export async function getMyBookings(userId) {
   }));
 }
 
+export async function getReviewsForBookings(bookingIds) {
+  if (!bookingIds.length) return {};
+
+  const { data, error } = await supabase
+    .from('tutoring_reviews')
+    .select('booking_id,rating,review')
+    .in('booking_id', bookingIds);
+
+  check(error, 'Could not load reviews.');
+  return Object.fromEntries((data || []).map((r) => [r.booking_id, r]));
+}
+
+// Reviews of a teacher, newest first, plus the average rating.
+export async function getTeacherReviews(teacherId) {
+  const { data, error } = await supabase
+    .from('tutoring_reviews')
+    .select('id,rating,review,created_at,student:profiles!tutoring_reviews_student_id_fkey(full_name,avatar_url)')
+    .eq('teacher_id', teacherId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  check(error, 'Could not load reviews.');
+
+  const reviews = data || [];
+  const average = reviews.length
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : null;
+
+  return { reviews, average };
+}
+
+// Average rating and count per teacher, for the offers list.
+export async function getTeacherRatings(teacherIds) {
+  if (!teacherIds.length) return {};
+
+  const { data, error } = await supabase
+    .from('tutoring_reviews')
+    .select('teacher_id,rating')
+    .in('teacher_id', teacherIds);
+
+  check(error, 'Could not load ratings.');
+
+  const totals = {};
+  (data || []).forEach(({ teacher_id: id, rating }) => {
+    totals[id] = totals[id] || { sum: 0, count: 0 };
+    totals[id].sum += rating;
+    totals[id].count += 1;
+  });
+
+  return Object.fromEntries(
+    Object.entries(totals).map(([id, t]) => [id, { average: t.sum / t.count, count: t.count }])
+  );
+}
+
+export async function reviewSession(bookingId, rating, review) {
+  const { error } = await supabase.rpc('review_tutoring_session', {
+    p_booking_id: bookingId,
+    p_rating: rating,
+    p_review: review,
+  });
+
+  check(error, 'Could not save your review.');
+}
+
 export async function completeBooking(bookingId) {
   const { error } = await supabase.rpc('complete_tutoring_booking', { p_booking_id: bookingId });
   check(error, 'Could not complete the session.');

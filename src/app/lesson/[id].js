@@ -20,6 +20,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { completeLesson } from '../../lib/nesba';
 import { supabase } from '../../lib/supabase';
+import LessonAssignment from '../../components/LessonAssignment';
+import LessonQuiz from '../../components/LessonQuiz';
 
 export default function LessonScreen() {
   const { id } = useLocalSearchParams();
@@ -660,6 +662,21 @@ export default function LessonScreen() {
           })
         )}
       </View>
+
+      {/* QUIZ AND ASSIGNMENT (enrolled learners and the teacher) */}
+      {canViewContent && !!session?.user && (
+        <>
+          <LessonQuiz
+            lessonId={id}
+            userId={session.user.id}
+            isTeacher={lesson?.courses?.teacher_id === session.user.id}
+          />
+          <LessonAssignment
+            lessonId={id}
+            isTeacher={lesson?.courses?.teacher_id === session.user.id}
+          />
+        </>
+      )}
 
       {/* COMPLETE LESSON */}
       <Pressable

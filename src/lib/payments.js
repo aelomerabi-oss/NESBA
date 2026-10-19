@@ -50,19 +50,66 @@ function currentOrigin() {
 /**
  * Send the learner to Stripe Checkout. On phones, open the same page on the
  * website instead, where the purchase is made.
+ *
+ * Returns { free: true } when a 100% discount code enrolled them directly.
  */
 export async function startCheckout({ webPath, ...purchase }) {
   if (Platform.OS !== 'web') {
     await Linking.openURL(`${SITE_URL}${webPath}`);
-    return;
+    return {};
   }
 
-  const { url } = await invoke('stripe-checkout', {
+  const result = await invoke('stripe-checkout', {
     ...purchase,
     returnOrigin: currentOrigin(),
   });
 
-  window.location.assign(url);
+  if (result.free) return result;
+
+  window.location.assign(result.url);
+  return {};
+}
+
+// Percent off for a discount code on a course, or null when it is not valid.
+export async function previewCoupon(code, courseId) {
+  const { data, error } = await supabase.rpc('preview_coupon', {
+    p_code: code,
+    p_course_id: courseId,
+  });
+
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
+export async function getMyCoupons(userId) {
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*, course:courses(title)')
+    .eq('creator_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function createCoupon(userId, { code, percentOff, courseId, maxRedemptions, days }) {
+  const { error } = await supabase.from('coupons').insert({
+    creator_id: userId,
+    code: code.trim().toUpperCase(),
+    percent_off: percentOff,
+    course_id: courseId || null,
+    max_redemptions: maxRedemptions || null,
+    expires_at: days ? new Date(Date.now() + days * 86400000).toISOString() : null,
+  });
+
+  if (error) {
+    throw new Error(error.code === '23505' ? 'That code is already taken. Try another.' : error.message);
+  }
+}
+
+export async function setCouponActive(couponId, isActive) {
+  const { error } = await supabase.from('coupons').update({ is_active: isActive }).eq('id', couponId);
+  if (error) throw new Error(error.message);
 }
 
 export function getPayoutStatus() {

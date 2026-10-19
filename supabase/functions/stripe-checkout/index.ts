@@ -2,7 +2,7 @@
  * Start a Stripe Checkout payment.
  *
  * Body:
- *   { kind: "course", courseId, returnOrigin }
+ *   { kind: "course", courseId, couponCode?, returnOrigin }
  *   { kind: "tutoring", offerId, startsAt, note, returnOrigin }
  *
  * Prices always come from the database, never from the request. A pending
@@ -66,10 +66,55 @@ Deno.serve(async (req) => {
 
       if (paid) return json({ error: "You already own this course." }, 400);
 
+      let coupon: { id: string; percent_off: number } | null = null;
+
+      if (typeof body.couponCode === "string" && body.couponCode.trim()) {
+        const { data } = await db.rpc("find_coupon", {
+          p_code: body.couponCode,
+          p_course_id: course.id,
+        });
+
+        if (!data?.id) return json({ error: "This discount code is not valid for this course." }, 400);
+        coupon = data;
+      }
+
+      const discount = coupon ? Math.round((course.price_cents * coupon.percent_off) / 100) : 0;
+      let amount = course.price_cents - discount;
+
+      // A 100% code: no payment needed, enroll straight away.
+      if (amount <= 0) {
+        const { error } = await db.from("course_purchases").insert({
+          course_id: course.id,
+          buyer_id: user.id,
+          seller_id: course.teacher_id,
+          amount_cents: 0,
+          platform_fee_cents: 0,
+          currency: course.currency,
+          status: "paid",
+          paid_at: new Date().toISOString(),
+          coupon_id: coupon!.id,
+          discount_cents: course.price_cents,
+        });
+
+        if (error) throw error;
+
+        const { error: enrollError } = await db
+          .from("enrollments")
+          .insert({ user_id: user.id, course_id: course.id });
+
+        if (enrollError && enrollError.code !== "23505") throw enrollError;
+
+        await db.rpc("redeem_coupon", { p_coupon_id: coupon!.id });
+        return json({ free: true });
+      }
+
+      // Stripe's minimum charge for euros is €0.50.
+      amount = Math.max(amount, 50);
+
       const destination = await payoutAccount(db, course.teacher_id);
       if (!destination) return json({ error: "This course cannot be bought right now. The creator has not finished setting up payments." }, 409);
 
-      const fee = platformFee(course.price_cents);
+      const fee = platformFee(amount);
 
       const { data: purchase, error } = await db
         .from("course_purchases")
@@ -77,9 +122,11 @@ Deno.serve(async (req) => {
           course_id: course.id,
           buyer_id: user.id,
           seller_id: course.teacher_id,
-          amount_cents: course.price_cents,
+          amount_cents: amount,
           platform_fee_cents: fee,
           currency: course.currency,
+          coupon_id: coupon?.id ?? null,
+          discount_cents: course.price_cents - amount,
         })
         .select("id")
         .single();
@@ -93,8 +140,11 @@ Deno.serve(async (req) => {
           quantity: 1,
           price_data: {
             currency: course.currency,
-            unit_amount: course.price_cents,
-            product_data: { name: course.title },
+            unit_amount: amount,
+            product_data: {
+              name: course.title,
+              description: coupon ? `Discount ${coupon.percent_off}% applied` : undefined,
+            },
           },
         }],
         payment_intent_data: {

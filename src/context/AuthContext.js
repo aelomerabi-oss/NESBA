@@ -16,6 +16,7 @@ import {
 import { router } from 'expo-router';
 
 import { supabase } from '../lib/supabase';
+import { unregisterPush } from '../lib/push';
 
 import {
   colors,
@@ -684,6 +685,8 @@ export function AuthProvider({ children }) {
   // ============================================
 
   const signOut = async () => {
+    // Stop pushes to this phone while we can still prove who we are.
+    await unregisterPush().catch(() => {});
     await supabase.auth.signOut();
 
     setNotificationPopup(null);

@@ -14,6 +14,7 @@ import {
   getProjectMembers,
   getProjectPosts,
   getProjectTasks,
+  completeProject,
   joinProject,
   leaveProject,
   setProjectOpen,
@@ -54,6 +55,9 @@ export default function ProjectScreen() {
   const [postLink, setPostLink] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [error, setError] = useState('');
+  const [finishing, setFinishing] = useState(false);
+  const [summary, setSummary] = useState('');
+  const [showcaseUrl, setShowcaseUrl] = useState('');
 
   const isMember = members.some((m) => m.user_id === userId);
   const isOwner = !!project && project.owner_id === userId;
@@ -146,10 +150,69 @@ export default function ProjectScreen() {
         </View>
       )}
 
+      {project.status === 'completed' && (
+        <View style={styles.showcase}>
+          <Text style={styles.showcaseTitle}>🏆 Project completed{project.completed_at ? ` · ${new Date(project.completed_at).toLocaleDateString()}` : ''}</Text>
+          {!!project.showcase_summary && <Text style={styles.description}>{project.showcase_summary}</Text>}
+          {!!project.showcase_url && (
+            <Pressable onPress={() => Linking.openURL(project.showcase_url)}>
+              <Text style={styles.link} numberOfLines={1}>See the result: {project.showcase_url}</Text>
+            </Pressable>
+          )}
+          {isMember && (
+            <Pressable style={[styles.primaryButton, { alignSelf: 'flex-start' }]} onPress={() => router.push(`/projects/certificate/${id}?member=${userId}`)}>
+              <Text style={styles.primaryText}>View my certificate</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
       {!!error && <Text style={styles.error}>{error}</Text>}
 
+      {isOwner && project.status !== 'completed' && (
+        finishing ? (
+          <View style={styles.finishForm}>
+            <Text style={styles.sectionTitle}>Finish the project</Text>
+            <Text style={styles.muted}>It goes into the public showcase and every member gets a certificate.</Text>
+            <TextInput
+              value={summary}
+              onChangeText={setSummary}
+              multiline
+              maxLength={3000}
+              placeholder="What did the team build and learn?"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, { minHeight: 90, textAlignVertical: 'top' }]}
+            />
+            <TextInput
+              value={showcaseUrl}
+              onChangeText={setShowcaseUrl}
+              autoCapitalize="none"
+              placeholder="Link to the result (website, demo video, document), optional"
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+            />
+            <View style={styles.actions}>
+              <Pressable
+                style={[styles.primaryButton, (working || summary.trim().length < 10) && styles.disabled]}
+                disabled={working || summary.trim().length < 10}
+                onPress={() => run(async () => { await completeProject(id, summary, showcaseUrl); setFinishing(false); })}
+              >
+                <Text style={styles.primaryText}>Complete project</Text>
+              </Pressable>
+              <Pressable style={styles.outlineButton} onPress={() => setFinishing(false)}>
+                <Text style={styles.outlineText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable style={[styles.outlineButton, { alignSelf: 'flex-start', marginTop: spacing.md }]} onPress={() => setFinishing(true)}>
+            <Text style={styles.outlineText}>🏁 Mark project as completed</Text>
+          </Pressable>
+        )
+      )}
+
       <View style={styles.actions}>
-        {!isMember && (
+        {!isMember && project.status !== 'completed' && (
           <Pressable
             style={[styles.primaryButton, (working || full || !project.is_open) && styles.disabled]}
             disabled={working || full || !project.is_open}
@@ -165,9 +228,9 @@ export default function ProjectScreen() {
         )}
         {isOwner && (
           <>
-            <Pressable style={styles.outlineButton} disabled={working} onPress={() => run(() => setProjectOpen(id, !project.is_open))}>
+            {project.status !== 'completed' && <Pressable style={styles.outlineButton} disabled={working} onPress={() => run(() => setProjectOpen(id, !project.is_open))}>
               <Text style={styles.outlineText}>{project.is_open ? 'Close to new members' : 'Open to new members'}</Text>
-            </Pressable>
+            </Pressable>}
             <Pressable style={[styles.outlineButton, styles.dangerOutline]} disabled={working} onPress={confirmDelete}>
               <Text style={[styles.outlineText, { color: colors.danger }]}>Delete</Text>
             </Pressable>
@@ -344,6 +407,9 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
   title: { ...typography.h1, fontSize: 24 },
   muted: { ...typography.caption },
+  showcase: { backgroundColor: colors.primarySoft, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, gap: spacing.sm },
+  showcaseTitle: { ...typography.body, fontWeight: '800' },
+  finishForm: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, gap: spacing.sm },
   courseLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm },
   courseLinkText: { color: colors.primary, fontWeight: '700' },
   description: { ...typography.body, color: colors.textSecondary, marginTop: spacing.md, lineHeight: 22 },

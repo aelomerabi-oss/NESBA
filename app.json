@@ -38,7 +38,19 @@
         }
       ],
       "expo-web-browser",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "color": "#6C5CE7"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "NESBA adds your booked sessions and live events to your calendar when you ask it to."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

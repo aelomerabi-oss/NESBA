@@ -39,6 +39,10 @@ async function completeCourse(db: Db, purchaseId: string, paymentIntent: string 
 
   if (error && error.code !== "23505") throw error;
 
+  if (purchase.coupon_id) {
+    await db.rpc("redeem_coupon", { p_coupon_id: purchase.coupon_id });
+  }
+
   await notify(db, purchase.seller_id, "course_sale", "New sale",
     `Someone bought ${purchase.course?.title || "your course"}.`, { course_id: purchase.course_id });
 

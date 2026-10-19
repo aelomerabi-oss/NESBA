@@ -41,6 +41,7 @@ export default function LearningScreen() {
   const [courses, setCourses] = useState({});
   const [badgeDetails, setBadgeDetails] = useState({});
   const [lockedBadges, setLockedBadges] = useState([]);
+  const [streak, setStreak] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,6 +49,13 @@ export default function LearningScreen() {
 
   const load = useCallback(async () => {
     const userId = session?.user?.id;
+
+    // The streak only decorates the page; ignore errors.
+    if (userId) {
+      supabase
+        .rpc('get_learning_streak', { p_user_id: userId })
+        .then(({ data }) => setStreak(data || null));
+    }
 
     if (!userId) {
       setEnrollments([]);
@@ -452,6 +460,33 @@ export default function LearningScreen() {
         and build your NESBA portfolio.
       </Text>
 
+
+      {/* ============================================================
+          LEARNING STREAK
+          ============================================================ */}
+
+      {!!streak && (
+        <View style={styles.streakCard}>
+          <Text style={styles.streakFlame}>{streak.current > 0 ? '🔥' : '💤'}</Text>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.streakTitle}>
+              {streak.current > 0
+                ? `${streak.current}-day learning streak`
+                : 'Start a learning streak'}
+            </Text>
+
+            <Text style={styles.muted}>
+              {streak.active_today
+                ? 'You learned today. Come back tomorrow to keep it going!'
+                : streak.current > 0
+                  ? 'Finish a lesson or quiz today to keep your streak.'
+                  : 'Finish a lesson, quiz or assignment today.'}
+              {streak.longest > 1 ? ` Best: ${streak.longest} days.` : ''}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* ============================================================
           PRACTICAL PROJECTS
@@ -1083,6 +1118,27 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h1,
     fontSize: 24,
+  },
+
+  streakCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.premium,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+
+  streakFlame: {
+    fontSize: 30,
+  },
+
+  streakTitle: {
+    ...typography.body,
+    fontWeight: '800',
   },
 
   projectsCard: {
