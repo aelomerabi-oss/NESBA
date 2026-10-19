@@ -436,40 +436,6 @@ export default function HomeScreen() {
 
 
   /* =======================================================
-     REFRESH
-     ======================================================= */
-
-  const handleRefresh =
-    useCallback(
-      async () => {
-
-        setRefreshing(true);
-
-        try {
-
-          /*
-           * Data refresh will be connected
-           * to Supabase in Part 2.
-           */
-
-        } catch (error) {
-
-          console.error(
-            'Refresh error:',
-            error
-          );
-
-        } finally {
-
-          setRefreshing(false);
-        }
-
-      },
-      []
-    );
-
-
-  /* =======================================================
      INITIALS
      ======================================================= */
 
@@ -7277,7 +7243,7 @@ export default function HomeScreen() {
         }
       >
 
-        {post.content && (
+        {!!post.content && (
 
           <Text
             style={
@@ -7292,7 +7258,7 @@ export default function HomeScreen() {
         )}
 
 
-        {post.link_url && (
+        {!!post.link_url && (
 
           <Pressable
             style={
@@ -7363,7 +7329,7 @@ export default function HomeScreen() {
         )}
 
 
-        {post.image_url && (
+        {!!post.image_url && (
 
           <Image
             source={{
@@ -7381,7 +7347,7 @@ export default function HomeScreen() {
         )}
 
 
-        {post.video_url && (
+        {!!post.video_url && (
 
           <View
             style={
@@ -7488,7 +7454,7 @@ export default function HomeScreen() {
             </Text>
 
 
-            {comment.content && (
+            {!!comment.content && (
 
               <Text
                 style={
@@ -7503,7 +7469,7 @@ export default function HomeScreen() {
             )}
 
 
-            {comment.media_url && (
+            {!!comment.media_url && (
 
               <Image
                 source={{
@@ -8644,7 +8610,7 @@ export default function HomeScreen() {
             }
 
             onRefresh={
-              refreshHome
+              handleRefreshData
             }
 
             tintColor={

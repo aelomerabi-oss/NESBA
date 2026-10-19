@@ -52,10 +52,17 @@ const goalOptions = [
 ];
 
 export default function OnboardingScreen() {
-  const { session, user } = useAuth();
+  const { session, user, refreshProfile } = useAuth();
 
+  // Start from the role requested at sign-up, if any.
   const [selectedRole, setSelectedRole] =
-    useState('student');
+    useState(
+      user.requestedRole === 'organization'
+        ? 'organization'
+        : user.requestedRole
+        ? 'teacher'
+        : 'student'
+    );
 
   const [selectedGoals, setSelectedGoals] =
     useState([]);
@@ -102,9 +109,13 @@ export default function OnboardingScreen() {
 
     let requestError = null;
 
+    /*
+     * Organizations apply through the registration form, which collects
+     * the name and details an admin needs to create the organization.
+     */
     if (
       !error &&
-      selectedRole !== 'student' &&
+      selectedRole === 'teacher' &&
       user.role !== selectedRole &&
       user.requestedRole !== selectedRole
     ) {
@@ -133,6 +144,9 @@ export default function OnboardingScreen() {
       return;
     }
 
+    // Without this the onboarding redirect would see the old profile.
+    await refreshProfile();
+
     if (
       selectedRole === 'teacher'
     ) {
@@ -143,12 +157,12 @@ export default function OnboardingScreen() {
     }
 
     if (
-      selectedRole === 'organization'
+      selectedRole === 'organization' &&
+      user.role !== 'organization' &&
+      user.requestedRole !== 'organization'
     ) {
-      Alert.alert(
-        'Organization request submitted',
-        'Your account will remain a student account until NESBA approves your Organization request.'
-      );
+      router.replace('/organization-registration');
+      return;
     }
 
     router.replace('/(tabs)');

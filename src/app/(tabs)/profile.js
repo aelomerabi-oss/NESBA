@@ -17,8 +17,9 @@ export default function ProfileScreen() {
     { icon: 'chatbubbles-outline', label: 'Messages', route: '/messages' },
     { icon: 'headset-outline', label: 'Media & Podcasts', route: '/media' },
     { icon: 'business-outline', label: 'Organizations', route: '/organizations' },
-    { icon: 'help-circle-outline', label: 'Help & Support' },
-    { icon: 'chatbox-ellipses-outline', label: 'Feedback', route: '/feedback' },
+    { icon: 'chatbox-ellipses-outline', label: 'Help & Feedback', route: '/feedback' },
+    { icon: 'shield-checkmark-outline', label: 'Privacy Policy', route: '/privacy' },
+    { icon: 'document-text-outline', label: 'Terms of Use', route: '/terms' },
   ];
 
   if (!session) {

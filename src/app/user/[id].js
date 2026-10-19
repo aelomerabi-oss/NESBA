@@ -555,7 +555,7 @@ export default function PublicProfileScreen() {
                   </View>
                 </View>
 
-                {certificate.issued_at && (
+                {!!certificate.issued_at && (
                   <Text
                     style={styles.muted}
                   >
@@ -566,7 +566,7 @@ export default function PublicProfileScreen() {
                   </Text>
                 )}
 
-                {certificateId && (
+                {!!certificateId && (
                   <Text
                     style={
                       styles.certificateId
@@ -654,7 +654,7 @@ export default function PublicProfileScreen() {
                       {badgeName}
                     </Text>
 
-                    {courseTitle && (
+                    {!!courseTitle && (
                       <Text
                         style={
                           styles.courseReference
@@ -676,7 +676,7 @@ export default function PublicProfileScreen() {
                   </View>
                 </View>
 
-                {badge.awarded_at && (
+                {!!badge.awarded_at && (
                   <Text
                     style={styles.muted}
                   >
@@ -741,7 +741,7 @@ export default function PublicProfileScreen() {
                     'Course'}
                 </Text>
 
-                {course.description && (
+                {!!course.description && (
                   <Text
                     style={styles.muted}
                     numberOfLines={2}
@@ -865,7 +865,7 @@ export default function PublicProfileScreen() {
               }
               style={styles.postCard}
             >
-              {post.created_at && (
+              {!!post.created_at && (
                 <Text
                   style={styles.date}
                 >
@@ -939,7 +939,7 @@ export default function PublicProfileScreen() {
                     'Shared Content'}
                 </Text>
 
-                {share.content_id && (
+                {!!share.content_id && (
                   <Text
                     style={styles.muted}
                   >

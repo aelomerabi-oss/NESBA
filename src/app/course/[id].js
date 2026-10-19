@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { Link, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Link, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,7 +24,7 @@ import { supabase } from '../../lib/supabase';
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { user, session } = useAuth();
+  const { session } = useAuth();
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,8 +53,18 @@ export default function CourseDetailScreen() {
       })
       .catch((e) => Alert.alert('Error', e.message))
       .finally(() => setLoading(false));
+  }, [id]);
 
-    if (session?.user) {
+  /*
+   * Re-read on every focus so lessons completed on the lesson
+   * screen show up after navigating back.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user) {
+        return;
+      }
+
       supabase
         .from('enrollments')
         .select('id,progress_percent')
@@ -97,8 +108,8 @@ export default function CourseDetailScreen() {
             }
           }
         });
-    }
-  }, [id, session]);
+    }, [id, session?.user?.id])
+  );
 
   const handleEnroll = async () => {
     if (!session?.user) {
@@ -133,16 +144,14 @@ export default function CourseDetailScreen() {
     );
   };
 
+  // This screen looks courses up by id, so a slug link would not open.
   const getShareUrl = () => {
-    const slug =
-      course?.slug ||
-      course?.title
-        ?.toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+    const origin =
+      Platform.OS === 'web' && typeof window !== 'undefined'
+        ? window.location.origin
+        : 'https://nesba.app';
 
-    return `https://nesba.app/course/${slug || id}`;
+    return `${origin}/course/${id}`;
   };
 
   const handleShare = () => {
@@ -358,7 +367,7 @@ export default function CourseDetailScreen() {
             </Text>
           </View>
 
-          {course.description && (
+          {!!course.description && (
             <Text style={styles.description}>
               {course.description}
             </Text>
