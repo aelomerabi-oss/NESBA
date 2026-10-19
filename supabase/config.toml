@@ -46,3 +46,17 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/stripe-webhook/deno.json"
 entrypoint = "./functions/stripe-webhook/index.ts"
+
+# Called by the notifications trigger through pg_net; checks the database
+# itself instead of a JWT (see the function header).
+[functions.send-push]
+enabled = true
+verify_jwt = false
+import_map = "./functions/send-push/deno.json"
+entrypoint = "./functions/send-push/index.ts"
+
+[functions.livekit-record]
+enabled = true
+verify_jwt = false
+import_map = "./functions/livekit-record/deno.json"
+entrypoint = "./functions/livekit-record/index.ts"

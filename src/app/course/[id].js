@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import PremiumBadge from '../../components/PremiumBadge';
-import { formatPrice, startCheckout } from '../../lib/payments';
+import { formatPrice, previewCoupon, startCheckout } from '../../lib/payments';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { getCourseById } from '../../lib/courses';
@@ -27,6 +27,10 @@ export default function CourseDetailScreen() {
   const { id, paid } = useLocalSearchParams();
   const { session } = useAuth();
   const [buying, setBuying] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [percentOff, setPercentOff] = useState(null);
+  const [codeError, setCodeError] = useState('');
   // Back from Stripe: the webhook enrolls the buyer within a few seconds.
   const [awaitingPayment, setAwaitingPayment] = useState(paid === '1');
 
@@ -352,6 +356,26 @@ export default function CourseDetailScreen() {
   const isOwnCourse = course.teacher_id === session?.user?.id;
   const mustBuy = price > 0 && !enrolled && !isOwnCourse;
 
+  const applyCode = async () => {
+    if (!session?.user) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      setCodeError('');
+      const off = await previewCoupon(code, id);
+      setPercentOff(off);
+      if (!off) setCodeError('This code is not valid for this course.');
+    } catch (e) {
+      setCodeError(e.message);
+    }
+  };
+
+  const discountedPrice = percentOff
+    ? Math.max(0, price - Math.round((price * percentOff) / 100))
+    : price;
+
   const handleBuy = async () => {
     if (!session?.user) {
       router.push('/login');
@@ -360,11 +384,17 @@ export default function CourseDetailScreen() {
 
     try {
       setBuying(true);
-      await startCheckout({
+      const result = await startCheckout({
         kind: 'course',
         courseId: id,
+        couponCode: percentOff ? code : undefined,
         webPath: `/course/${id}`,
       });
+
+      if (result.free) {
+        setEnrolled(true);
+        Alert.alert('Enrolled!', 'Your discount code unlocked this course.');
+      }
     } catch (e) {
       Alert.alert('Could not start checkout', e.message);
     } finally {
@@ -440,6 +470,42 @@ export default function CourseDetailScreen() {
             </View>
           )}
 
+          {mustBuy && Platform.OS === 'web' && (
+            <View style={styles.codeBox}>
+              {!codeOpen ? (
+                <Pressable onPress={() => setCodeOpen(true)}>
+                  <Text style={styles.codeLink}>Have a discount code?</Text>
+                </Pressable>
+              ) : (
+                <>
+                  <View style={styles.codeRow}>
+                    <TextInput
+                      value={code}
+                      onChangeText={(text) => {
+                        setCode(text.toUpperCase());
+                        setPercentOff(null);
+                        setCodeError('');
+                      }}
+                      autoCapitalize="characters"
+                      placeholder="DISCOUNT CODE"
+                      placeholderTextColor={colors.textMuted}
+                      style={styles.codeInput}
+                    />
+                    <Pressable style={styles.codeButton} onPress={applyCode} disabled={!code.trim()}>
+                      <Text style={styles.codeButtonText}>Apply</Text>
+                    </Pressable>
+                  </View>
+                  {!!percentOff && (
+                    <Text style={styles.codeSuccess}>
+                      {percentOff}% off: you pay {formatPrice(discountedPrice, course.currency)} instead of {formatPrice(price, course.currency)}.
+                    </Text>
+                  )}
+                  {!!codeError && <Text style={styles.codeError}>{codeError}</Text>}
+                </>
+              )}
+            </View>
+          )}
+
           {isLocked ? (
             <Link href="/premium" asChild>
               <Pressable style={styles.unlockBanner}>
@@ -467,7 +533,9 @@ export default function CourseDetailScreen() {
                 ) : (
                   <Text style={styles.enrollBtnText}>
                     {Platform.OS === 'web'
-                      ? `Buy for ${formatPrice(price, course.currency)}`
+                      ? discountedPrice === 0
+                        ? 'Get it free with your code'
+                        : `Buy for ${formatPrice(discountedPrice, course.currency)}`
                       : `Buy on the website · ${formatPrice(price, course.currency)}`}
                   </Text>
                 )}
@@ -970,6 +1038,57 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: spacing.md,
     lineHeight: 21,
+  },
+
+  codeBox: {
+    marginTop: spacing.sm,
+    gap: 6,
+  },
+
+  codeLink: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+
+  codeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+
+  codeInput: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    color: colors.text,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+
+  codeButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+  },
+
+  codeButtonText: {
+    color: '#fff',
+    fontWeight: '800',
+  },
+
+  codeSuccess: {
+    ...typography.caption,
+    color: colors.success,
+    fontWeight: '700',
+  },
+
+  codeError: {
+    ...typography.caption,
+    color: colors.danger,
   },
 
   paymentBanner: {

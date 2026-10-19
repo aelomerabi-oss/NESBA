@@ -28,6 +28,7 @@ import {
   parsePrice,
   setCoursePrice,
 } from '../../../lib/payments';
+import CouponManager from '../../../components/CouponManager';
 
 export default function Courses() {
   const { session } = useAuth();
@@ -200,6 +201,8 @@ export default function Courses() {
           </View>
         ))
       )}
+
+      {canSell && !loading && <CouponManager userId={userId} courses={courses} />}
     </ScrollView>
   );
 }
