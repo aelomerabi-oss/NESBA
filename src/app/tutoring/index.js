@@ -5,7 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../lib/payments';
-import { getOffers } from '../../lib/tutoring';
+import { getOffers, getTeacherRatings } from '../../lib/tutoring';
 import PersonAvatar from '../../components/PersonAvatar';
 
 const CREATOR_ROLES = ['teacher', 'mentor', 'organization', 'admin'];
@@ -13,6 +13,7 @@ const CREATOR_ROLES = ['teacher', 'mentor', 'organization', 'admin'];
 export default function TutoringScreen() {
   const { session, user } = useAuth();
   const [offers, setOffers] = useState([]);
+  const [ratings, setRatings] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -20,7 +21,12 @@ export default function TutoringScreen() {
   const load = useCallback(async () => {
     try {
       setError('');
-      setOffers(await getOffers());
+      const rows = await getOffers();
+      setOffers(rows);
+      // Ratings only decorate the list; offers still show without them.
+      getTeacherRatings([...new Set(rows.map((o) => o.teacher_id))])
+        .then(setRatings)
+        .catch(() => {});
     } catch (e) {
       setError(e.message);
     } finally {
@@ -84,7 +90,12 @@ export default function TutoringScreen() {
             <PersonAvatar person={item.teacher} />
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-              <Text style={styles.meta}>{item.teacher?.full_name || 'NESBA teacher'}</Text>
+              <Text style={styles.meta}>
+                {item.teacher?.full_name || 'NESBA teacher'}
+                {ratings[item.teacher_id]
+                  ? `  ·  ★ ${ratings[item.teacher_id].average.toFixed(1)} (${ratings[item.teacher_id].count})`
+                  : '  ·  New teacher'}
+              </Text>
             </View>
           </View>
           {!!item.description && <Text style={styles.cardText} numberOfLines={2}>{item.description}</Text>}

@@ -108,6 +108,36 @@ export async function setProjectOpen(groupId, isOpen) {
   check(error, 'Could not update the project.');
 }
 
+// Mark a project finished; it then appears in the public showcase and every
+// member can open a certificate.
+export async function completeProject(groupId, summary, url) {
+  const { error } = await supabase
+    .from('project_groups')
+    .update({
+      status: 'completed',
+      is_open: false,
+      showcase_summary: summary.trim() || null,
+      showcase_url: url.trim() || null,
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', groupId);
+
+  check(error, 'Could not complete the project.');
+}
+
+export async function getShowcase() {
+  const { data, error } = await supabase
+    .from('project_groups')
+    .select(`*, course:courses(id,title), project_group_members(member_role, profile:profiles(${PROFILE}))`)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(100);
+
+  check(error, 'Could not load the showcase.');
+  return data || [];
+}
+
 export async function deleteProject(groupId) {
   const { error } = await supabase.from('project_groups').delete().eq('id', groupId);
   check(error, 'Could not delete the project.');

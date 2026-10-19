@@ -1,13 +1,91 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { startLiveRoom } from '../lib/nesba';
 import { formatPrice } from '../lib/payments';
-import { completeBooking, getMyBookings } from '../lib/tutoring';
+import { completeBooking, getMyBookings, getReviewsForBookings, reviewSession } from '../lib/tutoring';
+import { addToCalendar } from '../lib/calendar';
+import { SITE_URL } from '../lib/payments';
 import PersonAvatar from '../components/PersonAvatar';
+
+function Stars({ value, onChange, size = 24 }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 4 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Pressable key={n} disabled={!onChange} onPress={() => onChange?.(n)} hitSlop={4}>
+          <Ionicons name={n <= value ? 'star' : 'star-outline'} size={size} color={colors.premium} />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+// Rate a private session once it has taken place.
+function ReviewForm({ booking, existing, onSaved }) {
+  const [rating, setRating] = useState(existing?.rating || 0);
+  const [text, setText] = useState(existing?.review || '');
+  const [open, setOpen] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState('');
+
+  if (existing && !open) {
+    return (
+      <View style={{ gap: 4 }}>
+        <Stars value={existing.rating} size={18} />
+        {!!existing.review && <Text style={styles.muted}>“{existing.review}”</Text>}
+        <Pressable onPress={() => setOpen(true)}><Text style={styles.link}>Edit review</Text></Pressable>
+      </View>
+    );
+  }
+
+  if (!open) {
+    return (
+      <Pressable onPress={() => setOpen(true)}>
+        <Text style={styles.link}>★ Rate this session</Text>
+      </Pressable>
+    );
+  }
+
+  const save = async () => {
+    if (!rating) {
+      setError('Choose 1 to 5 stars.');
+      return;
+    }
+    try {
+      setWorking(true);
+      setError('');
+      await reviewSession(booking.id, rating, text);
+      setOpen(false);
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <View style={{ gap: 8 }}>
+      <Stars value={rating} onChange={setRating} />
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        maxLength={2000}
+        multiline
+        placeholder="What was helpful? (optional, shown publicly)"
+        placeholderTextColor={colors.textMuted}
+        style={styles.input}
+      />
+      {!!error && <Text style={styles.error}>{error}</Text>}
+      <Pressable style={[styles.button, working && styles.disabled]} disabled={working} onPress={save}>
+        <Text style={styles.buttonText}>Save review</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 // Teachers can open the room a little before the booked time.
 const EARLY_START_MS = 15 * 60 * 1000;
@@ -18,6 +96,7 @@ export default function BookingsScreen() {
   const userId = session?.user?.id;
 
   const [bookings, setBookings] = useState([]);
+  const [reviews, setReviews] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [working, setWorking] = useState(null);
@@ -27,7 +106,9 @@ export default function BookingsScreen() {
     if (!userId) return;
     try {
       setError('');
-      setBookings(await getMyBookings(userId));
+      const rows = await getMyBookings(userId);
+      setBookings(rows);
+      setReviews(await getReviewsForBookings(rows.map((b) => b.id)));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -98,6 +179,26 @@ export default function BookingsScreen() {
         </View>
 
         {!!b.note && <Text style={styles.note}>“{b.note}”</Text>}
+
+        {now < end && (
+          <Pressable
+            style={styles.calendar}
+            onPress={() => addToCalendar({
+              title: b.offer?.title ? `NESBA: ${b.offer.title}` : 'NESBA private session',
+              startsAt: b.starts_at,
+              endsAt: new Date(end).toISOString(),
+              notes: `Private session with ${other?.full_name || 'your NESBA partner'}. Join from My Sessions in NESBA.`,
+              url: `${SITE_URL}/bookings`,
+            }).catch((e) => setError(e.message))}
+          >
+            <Ionicons name="calendar-number-outline" size={16} color={colors.primary} />
+            <Text style={styles.link}>Add to calendar</Text>
+          </Pressable>
+        )}
+
+        {!isTeacher && now > end && (
+          <ReviewForm booking={b} existing={reviews[b.id]} onSaved={load} />
+        )}
 
         {b.status === 'confirmed' && (
           <View style={styles.actions}>
@@ -196,6 +297,8 @@ const styles = StyleSheet.create({
   button: { flexDirection: 'row', gap: 6, alignItems: 'center', backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 16 },
   buttonText: { color: '#fff', fontWeight: '800' },
   disabled: { opacity: 0.6 },
+  calendar: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: spacing.sm, color: colors.text, minHeight: 70, textAlignVertical: 'top' },
   outline: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingVertical: 9, paddingHorizontal: 14 },
   outlineText: { color: colors.text, fontWeight: '700' },
 });

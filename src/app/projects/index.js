@@ -39,7 +39,7 @@ export default function ProjectsScreen() {
     const q = query.trim().toLowerCase();
     return projects.filter((p) => {
       if (filter === 'mine' && !mine.has(p.id)) return false;
-      if (filter === 'open' && (!p.is_open || p.memberCount >= p.max_members)) return false;
+      if (filter === 'open' && (!p.is_open || p.status === 'completed' || p.memberCount >= p.max_members)) return false;
       if (!q) return true;
       return [p.name, p.description, p.course?.title, ...(p.skills || [])]
         .filter(Boolean)
@@ -64,6 +64,12 @@ export default function ProjectsScreen() {
       <Pressable style={styles.createButton} onPress={create}>
         <Ionicons name="add" size={18} color="#fff" />
         <Text style={styles.createText}>Start a project</Text>
+      </Pressable>
+
+      <Pressable style={styles.showcaseLink} onPress={() => router.push('/projects/showcase')}>
+        <Ionicons name="trophy-outline" size={17} color={colors.primary} />
+        <Text style={styles.showcaseText}>See finished projects in the showcase</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
       </Pressable>
 
       <View style={styles.searchRow}>
@@ -119,7 +125,9 @@ export default function ProjectsScreen() {
           <Pressable style={styles.card} onPress={() => router.push(`/projects/${item.id}`)}>
             <View style={styles.cardTop}>
               <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
-              {mine.has(item.id) ? (
+              {item.status === 'completed' ? (
+                <Text style={[styles.badge, styles.badgeMine]}>🏆 Done</Text>
+              ) : mine.has(item.id) ? (
                 <Text style={[styles.badge, styles.badgeMine]}>Joined</Text>
               ) : !item.is_open || full ? (
                 <Text style={[styles.badge, styles.badgeClosed]}>{full ? 'Full' : 'Closed'}</Text>
@@ -166,6 +174,8 @@ const styles = StyleSheet.create({
   heroText: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   createButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 12, marginBottom: spacing.md },
   createText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  showcaseLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  showcaseText: { color: colors.primary, fontWeight: '700', flex: 1 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.sm },
   searchInput: { flex: 1, color: colors.text, paddingVertical: 10, fontSize: 15 },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginVertical: spacing.md },

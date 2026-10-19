@@ -1093,7 +1093,11 @@ export default function HomeScreen() {
           } =
             await supabaseClient.auth.getUser();
 
-          if (error) {
+          // Not signed in is normal for guests, not an error.
+          if (
+            error &&
+            error.name !== 'AuthSessionMissingError'
+          ) {
             throw error;
           }
 

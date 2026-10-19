@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { colors, isDarkTheme } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { registerForPush, usePushNavigation } from '../lib/push';
 
 // Screens a signed-in user may be on before finishing onboarding.
 const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms'];
@@ -30,10 +31,27 @@ function OnboardingGate() {
   return null;
 }
 
+// Register this phone for push notifications once someone is signed in.
+function PushSetup() {
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+
+  usePushNavigation();
+
+  useEffect(() => {
+    if (userId) {
+      registerForPush().catch((e) => console.warn('Push registration failed:', e));
+    }
+  }, [userId]);
+
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <AuthProvider>
       <OnboardingGate />
+      <PushSetup />
       <StatusBar style={isDarkTheme ? 'light' : 'dark'} />
 
       <Stack
@@ -130,6 +148,9 @@ export default function RootLayout() {
         <Stack.Screen name="tutoring/index" options={{ title: 'Private Sessions' }} />
         <Stack.Screen name="tutoring/[id]" options={{ title: 'Book a Session' }} />
         <Stack.Screen name="bookings" options={{ title: 'My Sessions' }} />
+        <Stack.Screen name="recordings" options={{ title: 'Recordings' }} />
+        <Stack.Screen name="projects/showcase" options={{ title: 'Project Showcase' }} />
+        <Stack.Screen name="projects/certificate/[id]" options={{ title: 'Project Certificate' }} />
         <Stack.Screen name="creator/events/index" options={{ title: 'Events', headerShown: false }} />
         <Stack.Screen name="creator/media/index" options={{ title: 'Media', headerShown: false }} />
         <Stack.Screen name="creator/organizations/create" options={{ title: 'Create Organization', headerShown: false }} />
