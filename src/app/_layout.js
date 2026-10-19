@@ -131,6 +131,9 @@ export default function RootLayout() {
         <Stack.Screen name="auth/callback" options={{ title: 'Signing In' }} />
         <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
         <Stack.Screen name="organizations" options={{ title: 'Organizations' }} />
+        <Stack.Screen name="projects/index" options={{ title: 'Practical Projects' }} />
+        <Stack.Screen name="projects/create" options={{ title: 'Start a Project' }} />
+        <Stack.Screen name="projects/[id]" options={{ title: 'Project' }} />
         <Stack.Screen name="organization-registration" options={{ title: 'Register Organization', headerShown: false }} />
         <Stack.Screen name="certificates" options={{ title: 'Certificates' }} />
         <Stack.Screen name="media" options={{ title: 'Media' }} />
