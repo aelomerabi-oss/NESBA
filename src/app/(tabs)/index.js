@@ -646,10 +646,16 @@ export default function HomeScreen() {
     useCallback(
       () => {
 
+        // Guests cannot post, so send them to log in first.
+        if (!currentUser) {
+          router.push('/login');
+          return;
+        }
+
         setComposerVisible(true);
 
       },
-      []
+      [currentUser, router]
     );
 
 
@@ -4929,8 +4935,10 @@ export default function HomeScreen() {
           styles.storyCard
         }
 
-        onPress={
-          pickStoryMedia
+        onPress={() =>
+          currentUser
+            ? pickStoryMedia()
+            : router.push('/login')
         }
       >
 
@@ -5005,8 +5013,10 @@ export default function HomeScreen() {
           </Text>
 
           <Pressable
-            onPress={
-              pickStoryMedia
+            onPress={() =>
+              currentUser
+                ? pickStoryMedia()
+                : router.push('/login')
             }
           >
 

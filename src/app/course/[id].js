@@ -113,10 +113,7 @@ export default function CourseDetailScreen() {
 
   const handleEnroll = async () => {
     if (!session?.user) {
-      Alert.alert(
-        'Log in required',
-        'Please log in to enroll in this course.'
-      );
+      router.push('/login');
       return;
     }
 
