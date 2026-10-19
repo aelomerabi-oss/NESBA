@@ -7,11 +7,24 @@ import CourseCard from '../../components/CourseCard';
 
 const TRENDING_COUNT = 5;
 
+// Icon and colour for each category card; unknown names get a default.
+const CATEGORY_LOOK = {
+  Business: { icon: 'briefcase-outline', color: '#6C5CE7' },
+  Finance: { icon: 'cash-outline', color: '#12B76A' },
+  'Soft Skills': { icon: 'chatbubbles-outline', color: '#F79009' },
+  'Computer Science': { icon: 'code-slash-outline', color: '#1769E0' },
+  Design: { icon: 'color-palette-outline', color: '#E4447A' },
+  Entrepreneurship: { icon: 'rocket-outline', color: '#00A3A3' },
+};
+
+const DEFAULT_LOOK = { icon: 'school-outline', color: '#6C5CE7' };
+
 export default function CoursesScreen() {
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [stats, setStats] = useState(new Map());
   const [categoryId, setCategoryId] = useState(null);
+  const [view, setView] = useState('courses');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -64,6 +77,36 @@ export default function CoursesScreen() {
 
   const activeCategory = categories.find((c) => c.id === categoryId);
 
+  const countByCategory = useMemo(() => {
+    const counts = new Map();
+    courses.forEach((c) => counts.set(c.category_id, (counts.get(c.category_id) || 0) + 1));
+    return counts;
+  }, [courses]);
+
+  const openCategory = (id) => {
+    setCategoryId(id);
+    setView('courses');
+  };
+
+  const tabs = (
+    <View style={styles.tabs}>
+      {[
+        { id: 'courses', label: 'All courses' },
+        { id: 'categories', label: 'Categories' },
+      ].map((tab) => (
+        <Pressable
+          key={tab.id}
+          onPress={() => setView(tab.id)}
+          style={[styles.tab, view === tab.id && styles.tabSelected]}
+        >
+          <Text style={[styles.tabText, view === tab.id && styles.tabTextSelected]}>
+            {tab.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
@@ -80,9 +123,46 @@ export default function CoursesScreen() {
     );
   }
 
+  if (view === 'categories') {
+    return (
+      <View style={styles.container}>
+        <FlatList
+          data={categories}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.categoryRow}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+          ListHeaderComponent={
+            <View>
+              <Text style={styles.header}>Explore Courses</Text>
+              {tabs}
+            </View>
+          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          renderItem={({ item }) => {
+            const look = CATEGORY_LOOK[item.name] || DEFAULT_LOOK;
+            const count = countByCategory.get(item.id) || 0;
+            return (
+              <Pressable style={styles.categoryCard} onPress={() => openCategory(item.id)}>
+                <View style={[styles.categoryIcon, { backgroundColor: `${look.color}1F` }]}>
+                  <Ionicons name={look.icon} size={24} color={look.color} />
+                </View>
+                <Text style={styles.categoryName} numberOfLines={2}>{item.name}</Text>
+                <Text style={styles.categoryCount}>
+                  {count} {count === 1 ? 'course' : 'courses'}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
+      </View>
+    );
+  }
+
   const header = (
     <View>
       <Text style={styles.header}>Explore Courses</Text>
+      {tabs}
 
       <ScrollView
         horizontal
@@ -156,6 +236,37 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.md },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: { ...typography.h1, fontSize: 22, paddingTop: spacing.lg, paddingBottom: spacing.sm },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.pill,
+    padding: 4,
+    marginBottom: spacing.md,
+  },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.pill },
+  tabSelected: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tabText: { ...typography.caption, fontWeight: '700' },
+  tabTextSelected: { color: colors.text },
+  categoryRow: { justifyContent: 'space-between', marginBottom: spacing.md },
+  categoryCard: {
+    width: '48%',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 6,
+  },
+  categoryIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  categoryName: { ...typography.body, fontWeight: '700' },
+  categoryCount: typography.caption,
   chips: { gap: spacing.sm, paddingBottom: spacing.md },
   chip: {
     borderWidth: 1,

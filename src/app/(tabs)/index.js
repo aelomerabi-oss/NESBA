@@ -56,6 +56,10 @@ import {
 } from '../../constants/theme';
 
 import {
+  getLiveNowEvents,
+} from '../../lib/nesba';
+
+import {
   getCurrentPlaceName,
 } from '../../lib/location';
 
@@ -168,6 +172,11 @@ export default function HomeScreen() {
   const [
     stories,
     setStories,
+  ] = useState([]);
+
+  const [
+    liveNow,
+    setLiveNow,
   ] = useState([]);
 
   const [
@@ -1319,6 +1328,21 @@ export default function HomeScreen() {
      LOAD STORIES
      ======================================================= */
 
+  const loadLiveNow =
+    useCallback(
+      async () => {
+        try {
+          setLiveNow(await getLiveNowEvents());
+        } catch (error) {
+          // The rest of Home still works without this section.
+          console.error('Live now error:', error);
+          setLiveNow([]);
+        }
+      },
+      []
+    );
+
+
   const loadStories =
     useCallback(
       async () => {
@@ -1743,6 +1767,7 @@ export default function HomeScreen() {
           await Promise.all([
             loadCourses(),
             loadStories(),
+            loadLiveNow(),
           ]);
 
           if (
@@ -1807,6 +1832,7 @@ export default function HomeScreen() {
         await Promise.all([
           loadCourses(),
           loadStories(),
+          loadLiveNow(),
         ]);
 
         if (
@@ -7044,6 +7070,87 @@ export default function HomeScreen() {
      TRENDING COURSES
      ======================================================= */
 
+  const LiveNowSection = () => {
+
+    if (liveNow.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.section}>
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <View style={styles.liveTitleRow}>
+              <View style={styles.liveDot} />
+              <Text style={styles.sectionTitle}>
+                Live Now
+              </Text>
+            </View>
+            <Text style={styles.sectionSubtitle}>
+              Join a session happening right now
+            </Text>
+          </View>
+
+          <Pressable onPress={() => router.push('/live')}>
+            <Text style={styles.seeAllText}>
+              See all
+            </Text>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.liveList}
+        >
+          {liveNow.map(event => (
+            <Pressable
+              key={event.id}
+              style={styles.liveCard}
+              onPress={() => {
+                if (!currentUser) {
+                  router.push('/login');
+                } else if (event.liveRoom) {
+                  router.push(`/live/${event.liveRoom.id}`);
+                } else {
+                  router.push('/live');
+                }
+              }}
+            >
+              <View style={styles.liveBadge}>
+                <View style={styles.liveBadgeDot} />
+                <Text style={styles.liveBadgeText}>LIVE</Text>
+              </View>
+
+              <Text style={styles.liveCardTitle} numberOfLines={2}>
+                {event.title || 'Live session'}
+              </Text>
+
+              <View style={styles.liveHostRow}>
+                {Avatar({
+                  uri: event.host?.avatar_url,
+                  name: event.host?.full_name,
+                  size: 24,
+                })}
+                <Text style={styles.liveHostName} numberOfLines={1}>
+                  {event.organizations?.name || event.host?.full_name || 'NESBA host'}
+                </Text>
+              </View>
+
+              <View style={styles.liveJoinButton}>
+                <Ionicons name="radio" size={15} color={colors.white} />
+                <Text style={styles.liveJoinText}>Join</Text>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+      </View>
+    );
+  };
+
+
   const TrendingCourses = () => {
 
     return (
@@ -8869,6 +8976,8 @@ export default function HomeScreen() {
 
         {CreatePostButton()}
 
+        {LiveNowSection()}
+
         {TrendingCourses()}
 
         {LatestPosts()}
@@ -10088,6 +10197,93 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 14,
     fontWeight: '800',
+  },
+
+  liveTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  liveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.danger,
+  },
+
+  liveList: {
+    gap: 12,
+    paddingRight: 12,
+  },
+
+  liveCard: {
+    width: 220,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    gap: 10,
+  },
+
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    backgroundColor: colors.danger,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+
+  liveBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.white,
+  },
+
+  liveBadgeText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  liveCardTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+    minHeight: 40,
+  },
+
+  liveHostRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  liveHostName: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+
+  liveJoinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 9,
+  },
+
+  liveJoinText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 14,
   },
 
   progressRow: {

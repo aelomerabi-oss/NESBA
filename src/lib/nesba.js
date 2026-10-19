@@ -4882,6 +4882,46 @@ export async function getEvents({
 }
 
 
+/*
+ * Events whose host is live right now, newest first. Anyone can see that an
+ * event is live; joining the room still needs an account.
+ */
+export async function getLiveNowEvents({
+  limit = 10,
+} = {}) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('events')
+    .select(EVENT_SELECT)
+    .eq('status', 'live')
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(
+      error.message ||
+      'Could not load live sessions.'
+    );
+  }
+
+  return safeArray(data).map(
+    (event) => ({
+      ...event,
+
+      liveRoom:
+        safeArray(
+          event.live_audio_rooms
+        ).find(
+          (room) =>
+            room.status === 'live'
+        ) || null,
+    })
+  );
+}
+
+
 export async function createEvent({
   title,
   description = '',
