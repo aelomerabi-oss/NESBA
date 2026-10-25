@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, ActivityIndicator, Alert, Share, Image, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, ActivityIndicator, Alert, Share, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, typography, radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { getPost, getPostComments, createPostComment, togglePostLike } from '../../lib/nesba';
+import { openStoredFile } from '../../lib/storage-url';
+import StorageImage from '../../components/StorageImage';
 
 export default function PostScreen() {
   const { id } = useLocalSearchParams();
@@ -46,8 +48,8 @@ export default function PostScreen() {
     <View style={styles.card}>
       <Pressable style={styles.authorRow} onPress={() => post.author_id && router.push({ pathname: '/profile/[id]', params: { id: String(post.author_id) } })}><View style={styles.avatar}><Text style={styles.avatarText}>{(post.author_name||'N').charAt(0).toUpperCase()}</Text></View><View style={{flex:1}}><Text style={styles.author}>{post.author_name||'NESBA Member'}</Text><Text style={styles.muted}>{new Date(post.created_at).toLocaleString()}</Text></View>{post.organizations?.verification_status==='verified'&&<Ionicons name="checkmark-circle" size={18} color={colors.primaryLight}/>}</Pressable>
       {!!post.content&&<Text style={styles.body}>{post.content}</Text>}
-      {!!post.image_url&&<Image accessibilityLabel="Photo in post" source={{uri:post.image_url}} style={styles.media} resizeMode="cover"/>}
-      {!!post.video_url&&<Pressable style={styles.linkCard} onPress={()=>Linking.openURL(post.video_url)}><Ionicons name="play-circle" size={22} color={colors.primaryLight}/><Text style={styles.linkText}>Watch video</Text></Pressable>}
+      {!!post.image_url&&<StorageImage accessibilityLabel="Photo in post" uri={post.image_url} style={styles.media} resizeMode="cover"/>}
+      {!!post.video_url&&<Pressable style={styles.linkCard} onPress={()=>openStoredFile(post.video_url)}><Ionicons name="play-circle" size={22} color={colors.primaryLight}/><Text style={styles.linkText}>Watch video</Text></Pressable>}
       {!!post.link_url&&<Pressable style={styles.linkCard} onPress={()=>Linking.openURL(post.link_url)}><Ionicons name="link" size={20} color={colors.primaryLight}/><Text style={styles.linkText} numberOfLines={1}>{post.link_url}</Text></Pressable>}
       <View style={styles.actions}>
         <Pressable style={styles.action} onPress={like}><Ionicons name={post.liked?'heart':'heart-outline'} size={20} color={post.liked?colors.danger:colors.textMuted}/><Text style={styles.actionText}>{post.likes} Likes</Text></Pressable>

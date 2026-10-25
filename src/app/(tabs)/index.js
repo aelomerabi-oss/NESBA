@@ -62,6 +62,7 @@ import {
 import GuestWelcome from '../../components/GuestWelcome';
 import { colors, styles } from '../../components/home/styles';
 import { PostBody } from '../../components/home/PostBody';
+import StorageImage from '../../components/StorageImage';
 import {
   MAX_UPLOAD_BYTES,
   formatBytes,
@@ -7636,11 +7637,8 @@ export default function HomeScreen() {
 
             {!!comment.media_url && (
 
-              <Image accessibilityLabel="Photo in comment"
-                source={{
-                  uri:
-                    comment.media_url,
-                }}
+              <StorageImage accessibilityLabel="Photo in comment"
+                uri={comment.media_url}
 
                 style={
                   styles.commentMedia

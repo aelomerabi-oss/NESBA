@@ -19,6 +19,7 @@ import {
 } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { completeLesson } from '../../lib/nesba';
+import { viewableUrl } from '../../lib/storage-url';
 import { supabase } from '../../lib/supabase';
 import LessonAssignment from '../../components/LessonAssignment';
 import LessonQuiz from '../../components/LessonQuiz';
@@ -226,7 +227,13 @@ export default function LessonScreen() {
     }
 
     try {
-      await Linking.openURL(url);
+      // Uploaded lesson files are private: open a signed link.
+      const link = await viewableUrl(url);
+      if (!link) {
+        Alert.alert('Not available', 'Enroll in this course to open this lesson.');
+        return;
+      }
+      await Linking.openURL(link);
     } catch (error) {
       Alert.alert(
         'Unable to open',

@@ -1,6 +1,7 @@
-import { Image, Linking, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styles, colors } from './styles';
+import StorageImage from '../StorageImage';
 
 // The text, photo, video or link inside a post on Home.
 export const PostBody = ({
@@ -102,11 +103,8 @@ export const PostBody = ({
 
         {!!post.image_url && (
 
-          <Image accessibilityLabel="Photo in post"
-            source={{
-              uri:
-                post.image_url,
-            }}
+          <StorageImage accessibilityLabel="Photo in post"
+                uri={post.image_url}
 
             style={
               styles.postImage

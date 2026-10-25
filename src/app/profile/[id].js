@@ -1,3 +1,4 @@
+import StorageImage from '../../components/StorageImage';
 import {
     useCallback,
     useEffect,
@@ -1333,11 +1334,8 @@ function PublicProfileContent() {
                     {
                       image ? (
 
-                        <Image accessibilityLabel="Photo"
-                          source={{
-                            uri:
-                              image,
-                          }}
+                        <StorageImage accessibilityLabel="Photo"
+                uri={image}
                           style={
                             styles.postImage
                           }
