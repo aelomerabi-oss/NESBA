@@ -12,6 +12,7 @@ const sections = [
       'Account details: your name, email address and password (stored only in encrypted form), and your role (student, teacher or organization). If you sign in with Google or Apple, we receive your name and email address from them.',
       'Profile details you choose to add: photo, bio, goals, expertise and experience. Organization applications also include the organization name, type, website, location, contact email and description.',
       'Content you create: posts, comments, stories, likes, follows, course reviews, feedback, and the courses, lessons and files teachers upload.',
+      'Story location, only if you choose to add one: the place name you type or pick, such as "Amsterdam, Netherlands". If you tap "Use my current location", your device position is used once to find that place name and is not stored.',
       'Messages: direct messages and their attachments, and chat messages in live sessions.',
       'Learning activity: enrollments, lesson progress, certificates and badges.',
       'Live sessions: when you speak or share your screen, your audio and screen are streamed live to the other participants. We record who joined a session and their role in it.',
@@ -28,7 +29,7 @@ const sections = [
   {
     heading: 'What other people can see',
     body: [
-      'Your name, photo, bio and role are visible to other users, as are your posts, comments, stories and public course reviews.',
+      'Your name, photo, bio and role are visible to other users, as are your posts, comments, stories and public course reviews. A place you add to a story is shown on that story.',
       'Direct messages are visible only to you and the person you are talking to. Live session chat is visible to everyone in that session.',
       'Certificates can be verified by anyone who has the certificate ID.',
     ],
@@ -40,6 +41,7 @@ const sections = [
       'LiveKit carries live session audio, video and screen sharing.',
       'Stripe processes payments for premium courses and private sessions, and pays out teachers and organizations. Your card or bank details go directly to Stripe; NESBA never sees or stores them.',
       'Google and Apple handle sign-in if you choose those options.',
+      'When you use your current location for a story, your phone’s own location service (Apple or Google) turns it into a place name. On the website, OpenStreetMap does this instead and receives your approximate position for that one lookup.',
       'These providers process data only to provide their service to us.',
     ],
   },
