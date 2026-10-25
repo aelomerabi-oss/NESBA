@@ -25,6 +25,7 @@ const SHORTCUTS = [
   { icon: 'chatbubbles-outline', label: 'Messages', route: '/messages', member: true },
   { icon: 'notifications-outline', label: 'Notifications', route: '/notifications', member: true },
   { icon: 'create-outline', label: 'Creator Studio', route: '/creator', creator: true },
+  { icon: 'gift-outline', label: 'Invite friends', route: '/invite', member: true },
   { icon: 'help-circle-outline', label: 'FAQ', route: '/faq' },
 ];
 

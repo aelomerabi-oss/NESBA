@@ -36,6 +36,7 @@ function json(body: unknown, status = 200) {
 // Where tapping the notification should open in the app.
 function routeFor(type: string, data: Record<string, unknown>) {
   if (type === "message" && data.sender_id) return `/messages/${data.sender_id}`;
+  if (data.friend_id) return `/user/${data.friend_id}`;
   if (data.room_id) return `/live/${data.room_id}`;
   if (data.booking_id) return "/bookings";
   if (data.event_id) return `/event/${data.event_id}`;

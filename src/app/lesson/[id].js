@@ -194,13 +194,17 @@ export default function LessonScreen() {
           0
       );
 
+      // Finishing the course opens the new certificate, ready to share.
+      if (result?.course_completed && result?.certificate_id) {
+        router.push(`/certificate/${result.certificate_id}?new=1`);
+        return;
+      }
+
       Alert.alert(
         result?.course_completed
           ? 'Course completed! 🎉'
           : 'Lesson completed',
-        result?.certificate_id
-          ? `Certificate ${result.certificate_id} is now available in Your Learning.`
-          : `Your progress is now ${progress}%.`
+        `Your progress is now ${progress}%.`
       );
     } catch (e) {
       Alert.alert(

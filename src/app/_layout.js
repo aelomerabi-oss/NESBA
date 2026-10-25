@@ -7,9 +7,10 @@ import { colors, isDarkTheme } from '../constants/theme';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { registerForPush, usePushNavigation } from '../lib/push';
 import { setPageMeta } from '../lib/page-meta';
+import { claimPendingInvite } from '../lib/invites';
 
 // Screens a signed-in user may be on before finishing onboarding.
-const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms', 'event', 'faq', '+not-found'];
+const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms', 'event', 'invite', 'faq', '+not-found'];
 
 /*
  * Accounts start with onboarded = false. Send them to onboarding once
@@ -59,6 +60,7 @@ const PAGE_META = {
   '/messages': { title: 'Messages' },
   '/bookings': { title: 'My sessions' },
   '/certificates': { title: 'Certificates' },
+  '/invite': { title: 'Invite friends' },
 };
 
 function PageMeta() {
@@ -68,6 +70,18 @@ function PageMeta() {
     const meta = PAGE_META[pathname];
     if (meta) setPageMeta(meta);
   }, [pathname]);
+
+  return null;
+}
+
+// Count a new member for the friend whose invite link they opened.
+function InviteClaim() {
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+
+  useEffect(() => {
+    if (userId) claimPendingInvite();
+  }, [userId]);
 
   return null;
 }
@@ -94,6 +108,7 @@ export default function RootLayout() {
       <OnboardingGate />
       <PageMeta />
       <PushSetup />
+      <InviteClaim />
       <StatusBar style={isDarkTheme ? 'light' : 'dark'} />
 
       <Stack
@@ -192,6 +207,8 @@ export default function RootLayout() {
         <Stack.Screen name="bookings" options={{ title: 'My Sessions' }} />
         <Stack.Screen name="event/[id]" options={{ title: 'Workshop' }} />
         <Stack.Screen name="faq" options={{ title: 'FAQ' }} />
+        <Stack.Screen name="invite/index" options={{ title: 'Invite Friends' }} />
+        <Stack.Screen name="invite/[code]" options={{ title: 'Join NESBA' }} />
         <Stack.Screen name="+not-found" options={{ title: 'Page not found' }} />
         <Stack.Screen name="recordings" options={{ title: 'Recordings' }} />
         <Stack.Screen name="projects/showcase" options={{ title: 'Project Showcase' }} />

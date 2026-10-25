@@ -15,6 +15,7 @@ const sections = [
       'Story location, only if you choose to add one: the place name you type or pick, such as "Amsterdam, Netherlands". If you tap "Use my current location", your device position is used once to find that place name and is not stored.',
       'Messages: direct messages and their attachments, and chat messages in live sessions.',
       'Learning activity: enrollments, lesson progress, certificates and badges.',
+      'Invites: if you join through a friend’s invite link, we record who invited you. That friend is told that you joined.',
       'Live sessions: when you speak or share your screen, your audio and screen are streamed live to the other participants. We record who joined a session and their role in it.',
     ],
   },

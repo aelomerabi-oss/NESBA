@@ -13,6 +13,7 @@ import {
   Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -29,19 +30,29 @@ import {
   getCertificateById,
 } from '../../lib/learning';
 
+import { SITE_URL } from '../../lib/payments';
+import { shareLink } from '../../lib/share-link';
+import { usePageMeta } from '../../lib/page-meta';
+
 import {
   supabase,
 } from '../../lib/supabase';
 
 
 export default function CertificateScreen() {
-  const { id } = useLocalSearchParams();
+  // new=1 when the learner arrives straight from finishing the course.
+  const { id, new: justEarned } = useLocalSearchParams();
 
   const [cert, setCert] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [working, setWorking] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+
+  usePageMeta(
+    cert ? `${cert.profiles?.full_name || 'NESBA'} · ${cert.courses?.title || 'Certificate'}` : null,
+    cert ? `Verified NESBA certificate for completing ${cert.courses?.title || 'a course'}.` : null
+  );
 
 
   /*
@@ -370,6 +381,44 @@ export default function CertificateScreen() {
 
   /*
    * ============================================
+   * SHARE
+   * ============================================
+   *
+   * Anyone with the link can open and verify
+   * the certificate.
+   */
+
+  const certificateUrl = () =>
+    `${SITE_URL}/certificate/${cert.certificate_id}`;
+
+  const shareMessage = () =>
+    `I just completed "${cert.courses?.title || 'a course'}" on NESBA and earned my certificate! 🎓`;
+
+  const handlePostOnLinkedIn = () => {
+    const text =
+      `${shareMessage()}
+
+NESBA teaches practical business skills from people who have built a business.
+
+Verify my certificate: ${certificateUrl()}`;
+
+    Linking.openURL(
+      `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`
+    ).catch(() =>
+      Alert.alert('Could not open LinkedIn', 'Use Share instead.')
+    );
+  };
+
+  const handleShare = () =>
+    shareLink({
+      title: 'My NESBA certificate',
+      message: shareMessage(),
+      url: certificateUrl(),
+    });
+
+
+  /*
+   * ============================================
    * LINKEDIN
    * ============================================
    */
@@ -416,9 +465,7 @@ export default function CertificateScreen() {
           cert.certificate_id,
 
         certUrl:
-          Platform.OS === 'web'
-            ? window.location.href
-            : `https://nesba.app/certificate/${cert.id}`,
+          certificateUrl(),
       });
 
     Linking.openURL(
@@ -527,9 +574,12 @@ export default function CertificateScreen() {
    */
 
   return (
-    <View
+    <ScrollView
       style={
-        styles.container
+        styles.scroll
+      }
+      contentContainerStyle={
+        styles.scrollContent
       }
     >
 
@@ -568,6 +618,30 @@ export default function CertificateScreen() {
           styles.centerContent
         }
       >
+
+        {isOwner && justEarned === '1' ? (
+          <View
+            style={
+              styles.celebrate
+            }
+          >
+            <Text
+              style={
+                styles.celebrateTitle
+              }
+            >
+              🎉 Congratulations!
+            </Text>
+
+            <Text
+              style={
+                styles.celebrateText
+              }
+            >
+              You finished the course. Share your certificate so your network sees what you learned.
+            </Text>
+          </View>
+        ) : null}
 
         {/* CERTIFICATE */}
 
@@ -769,6 +843,56 @@ export default function CertificateScreen() {
                 styles.downloadBtn
               }
               onPress={
+                handlePostOnLinkedIn
+              }
+            >
+              <Ionicons
+                name="logo-linkedin"
+                size={18}
+                color="#0A66C2"
+              />
+
+              <Text
+                style={
+                  styles.downloadBtnText
+                }
+              >
+                Post about it on LinkedIn
+              </Text>
+            </Pressable>
+
+
+            <Pressable
+              style={
+                styles.downloadBtn
+              }
+              onPress={
+                handleShare
+              }
+            >
+              <Ionicons
+                name="share-social-outline"
+                size={18}
+                color={
+                  colors.text
+                }
+              />
+
+              <Text
+                style={
+                  styles.downloadBtnText
+                }
+              >
+                Share with friends
+              </Text>
+            </Pressable>
+
+
+            <Pressable
+              style={
+                styles.downloadBtn
+              }
+              onPress={
                 handleDownloadPdf
               }
               disabled={
@@ -813,7 +937,7 @@ export default function CertificateScreen() {
 
       </View>
 
-    </View>
+    </ScrollView>
   );
 }
 
@@ -838,8 +962,52 @@ const styles =
     },
 
 
-    centerContent: {
+    scroll: {
       flex: 1,
+      backgroundColor:
+        colors.background,
+    },
+
+
+    scrollContent: {
+      flexGrow: 1,
+      padding:
+        spacing.md,
+    },
+
+
+    celebrate: {
+      width: '100%',
+      maxWidth: 420,
+      backgroundColor:
+        colors.primarySoft,
+      borderRadius:
+        radius.md,
+      padding:
+        spacing.md,
+      marginBottom:
+        spacing.md,
+      gap: 4,
+    },
+
+
+    celebrateTitle: {
+      ...typography.body,
+      fontWeight:
+        '800',
+      fontSize: 18,
+    },
+
+
+    celebrateText: {
+      ...typography.body,
+      color:
+        colors.textSecondary,
+    },
+
+
+    centerContent: {
+      flexGrow: 1,
       width: '100%',
       justifyContent:
         'center',

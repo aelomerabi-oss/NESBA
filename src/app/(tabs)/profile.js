@@ -41,6 +41,7 @@ export default function ProfileScreen() {
     { icon: 'person-circle-outline', label: 'Private Sessions', route: '/tutoring' },
     { icon: 'calendar-outline', label: 'My Sessions', route: '/bookings' },
     { icon: 'create-outline', label: 'Creator Studio', route: '/creator' },
+    { icon: 'gift-outline', label: 'Invite Friends', route: '/invite' },
     { icon: 'person-outline', label: 'Edit Profile', route: '/edit-profile' },
     { icon: 'eye-outline', label: 'View Public Profile', route: user?.id ? `/user/${user.id}` : null },
     { icon: 'ribbon-outline', label: 'Certificates & Badges', route: '/learn' },

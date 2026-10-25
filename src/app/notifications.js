@@ -227,6 +227,17 @@ export default function NotificationsScreen() {
       }
 
       if (
+        item.type === 'invite_joined' &&
+        item.data?.friend_id
+      ) {
+        router.push(
+          `/user/${item.data.friend_id}`
+        );
+
+        return;
+      }
+
+      if (
         item.type === 'badge_earned'
       ) {
         router.push(
@@ -435,6 +446,9 @@ export default function NotificationsScreen() {
                     : item.type ===
                       'event_live'
                     ? '🔴'
+                    : item.type ===
+                      'invite_joined'
+                    ? '🤝'
                     : '🔔'}
                 </Text>
               </View>
