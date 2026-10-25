@@ -17,6 +17,8 @@ const PREFERENCE_BY_TYPE: Record<string, string> = {
   tutoring_booked: "event_enabled",
   tutoring_confirmed: "event_enabled",
   ticket_purchase: "event_enabled",
+  event_reminder: "event_enabled",
+  reminder: "reminders_enabled",
   event_registration: "event_enabled",
   ticket_sale: "course_enabled",
   course_sale: "course_enabled",
@@ -35,6 +37,7 @@ function json(body: unknown, status = 200) {
 
 // Where tapping the notification should open in the app.
 function routeFor(type: string, data: Record<string, unknown>) {
+  if (typeof data.route === "string" && data.route.startsWith("/") && !data.route.startsWith("//")) return data.route;
   if (type === "message" && data.sender_id) return `/messages/${data.sender_id}`;
   if (data.friend_id) return `/user/${data.friend_id}`;
   if (data.room_id) return `/live/${data.room_id}`;

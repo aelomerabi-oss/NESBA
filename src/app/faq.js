@@ -14,6 +14,7 @@ const GROUPS = [
       ['Is NESBA free?', 'Creating an account is free, and many courses, live classes and project groups are free. Some courses, workshops and 1-to-1 sessions are paid; the price is always shown before you buy.'],
       ['Can I use NESBA on my phone?', 'Yes. NESBA works in any browser on your phone, tablet or computer, and has an app for iPhone and Android.'],
       ['Do I get a certificate?', 'Yes. You get a certificate when you complete a course, and when your project team finishes a practical project. Certificates show what you did on NESBA; they are not a formal diploma unless the course says so.'],
+      ['Why do I get reminders?', 'NESBA reminds you before a workshop or 1-to-1 session you booked, and now and then nudges you to continue a course or see what is new. You get at most one nudge a day. To stop the nudges, go to Profile and turn off Learning reminders.'],
       ['How do I invite friends?', 'Go to Profile and tap Invite Friends to get your personal link. Share it in a chat, post or your bio. When a friend creates an account with it, you get a notification and badges at 1, 5 and 25 friends.'],
     ],
   },

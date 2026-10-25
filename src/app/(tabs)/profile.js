@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { colors, isDarkTheme, radius, spacing, typography } from '../../constants/theme';
 import { saveThemeNameAndReload } from '../../lib/theme-preference';
+import { getRemindersEnabled, setRemindersEnabled } from '../../lib/notification-settings';
 import { useAuth } from '../../context/AuthContext';
 
 function DarkModeRow() {
@@ -15,6 +16,34 @@ function DarkModeRow() {
         accessibilityLabel="Dark mode"
         value={isDarkTheme}
         onValueChange={(on) => saveThemeNameAndReload(on ? 'dark' : 'light')}
+        trackColor={{ true: colors.primary, false: colors.border }}
+        thumbColor="#fff"
+      />
+    </View>
+  );
+}
+
+// Automatic follow-ups such as "keep going" and "new on NESBA".
+function RemindersRow({ userId }) {
+  const [enabled, setEnabled] = useState(true);
+
+  useEffect(() => {
+    if (userId) getRemindersEnabled(userId).then(setEnabled).catch(() => {});
+  }, [userId]);
+
+  const change = (on) => {
+    setEnabled(on);
+    setRemindersEnabled(userId, on).catch(() => setEnabled(!on));
+  };
+
+  return (
+    <View style={styles.row}>
+      <Ionicons name="alarm-outline" size={20} color={colors.textMuted} />
+      <Text style={styles.rowLabel}>Learning reminders</Text>
+      <Switch
+        accessibilityLabel="Learning reminders"
+        value={enabled}
+        onValueChange={change}
         trackColor={{ true: colors.primary, false: colors.border }}
         thumbColor="#fff"
       />
@@ -126,6 +155,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={[styles.section, styles.settingsSection]}>
+        <RemindersRow userId={session?.user?.id} />
         <DarkModeRow />
       </View>
 

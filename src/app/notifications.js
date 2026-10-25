@@ -237,6 +237,22 @@ export default function NotificationsScreen() {
         return;
       }
 
+      /*
+       * Reminders carry the screen to open.
+       */
+
+      const route = item.data?.route;
+
+      if (
+        typeof route === 'string' &&
+        route.startsWith('/') &&
+        !route.startsWith('//')
+      ) {
+        router.push(route);
+
+        return;
+      }
+
       if (
         item.type === 'badge_earned'
       ) {
@@ -449,6 +465,11 @@ export default function NotificationsScreen() {
                     : item.type ===
                       'invite_joined'
                     ? '🤝'
+                    : item.type ===
+                        'reminder' ||
+                      item.type ===
+                        'event_reminder'
+                    ? '⏰'
                     : '🔔'}
                 </Text>
               </View>

@@ -23,6 +23,7 @@ const sections = [
     heading: 'How we use it',
     body: [
       'To run your account and the features you use: showing courses and your progress, issuing certificates, delivering messages and notifications, and hosting live sessions.',
+      'To send reminders: before a workshop or session you booked, and occasional nudges to continue a course, finish a purchase you started, or see what is new. You can turn the nudges off under Profile, Learning reminders.',
       'To review requests to become a teacher or organization, keep the platform safe, and respond to feedback.',
       'We do not sell your personal data and we do not show advertising.',
     ],
