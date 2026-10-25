@@ -165,7 +165,8 @@ export function AuthProvider({ children }) {
       error,
     } = await supabase
       .from('profiles')
-      .select('*')
+      // Every column except email, which is private (see 039_idor_fixes.sql).
+      .select('id,full_name,avatar_url,bio,role,is_premium,created_at,updated_at,onboarded,goals,verification_status,requested_role,expertise,experience')
       .eq('id', userId)
       .single();
 
@@ -782,7 +783,7 @@ export function AuthProvider({ children }) {
       'Guest Student',
 
     email:
-      profile?.email ||
+      session?.user?.email ||
       'guest@nesba.app',
 
     avatarUrl:

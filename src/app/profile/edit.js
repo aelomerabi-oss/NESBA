@@ -87,7 +87,6 @@ export default function EditProfile() {
         .from('profiles')
         .select(`
           id,
-          email,
           full_name,
           avatar_url,
           bio,

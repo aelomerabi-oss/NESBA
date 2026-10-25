@@ -128,7 +128,6 @@ export async function getUserProfile(
     .from('profiles')
     .select(`
       id,
-      email,
       full_name,
       avatar_url,
       bio,
@@ -452,7 +451,6 @@ export async function getPublicProfile(
 
     full_name:
       profile.full_name ||
-      profile.email ||
       'NESBA Member',
 
     avatar_url:

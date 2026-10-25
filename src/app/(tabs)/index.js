@@ -1117,7 +1117,7 @@ export default function HomeScreen() {
           } =
             await supabaseClient
               .from('profiles')
-              .select('*')
+              .select('id,full_name,avatar_url,bio,role,is_premium,created_at,updated_at,onboarded,goals,verification_status,requested_role,expertise,experience')
               .eq(
                 'id',
                 userId
