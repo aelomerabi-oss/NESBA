@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, ActivityIndicator, Alert, Share, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, ActivityIndicator, Alert, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, typography, radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { getPost, getPostComments, createPostComment, togglePostLike } from '../../lib/nesba';
 import { openStoredFile } from '../../lib/storage-url';
+import { openExternalLink } from '../../lib/safe-link';
 import StorageImage from '../../components/StorageImage';
 
 export default function PostScreen() {
@@ -50,7 +51,7 @@ export default function PostScreen() {
       {!!post.content&&<Text style={styles.body}>{post.content}</Text>}
       {!!post.image_url&&<StorageImage accessibilityLabel="Photo in post" uri={post.image_url} style={styles.media} resizeMode="cover"/>}
       {!!post.video_url&&<Pressable style={styles.linkCard} onPress={()=>openStoredFile(post.video_url)}><Ionicons name="play-circle" size={22} color={colors.primaryLight}/><Text style={styles.linkText}>Watch video</Text></Pressable>}
-      {!!post.link_url&&<Pressable style={styles.linkCard} onPress={()=>Linking.openURL(post.link_url)}><Ionicons name="link" size={20} color={colors.primaryLight}/><Text style={styles.linkText} numberOfLines={1}>{post.link_url}</Text></Pressable>}
+      {!!post.link_url&&<Pressable style={styles.linkCard} onPress={()=>openExternalLink(post.link_url)}><Ionicons name="link" size={20} color={colors.primaryLight}/><Text style={styles.linkText} numberOfLines={1}>{post.link_url}</Text></Pressable>}
       <View style={styles.actions}>
         <Pressable style={styles.action} onPress={like}><Ionicons name={post.liked?'heart':'heart-outline'} size={20} color={post.liked?colors.danger:colors.textMuted}/><Text style={styles.actionText}>{post.likes} Likes</Text></Pressable>
         <View style={styles.action}><Ionicons name="chatbubble-outline" size={19} color={colors.textMuted}/><Text style={styles.actionText}>{comments.length} Comments</Text></View>

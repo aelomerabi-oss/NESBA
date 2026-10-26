@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { openExternalLink } from '../../lib/safe-link';
 import {
   addProjectPost,
   addProjectTask,
@@ -155,7 +156,7 @@ export default function ProjectScreen() {
           <Text style={styles.showcaseTitle}>🏆 Project completed{project.completed_at ? ` · ${new Date(project.completed_at).toLocaleDateString()}` : ''}</Text>
           {!!project.showcase_summary && <Text style={styles.description}>{project.showcase_summary}</Text>}
           {!!project.showcase_url && (
-            <Pressable onPress={() => Linking.openURL(project.showcase_url)}>
+            <Pressable onPress={() => openExternalLink(project.showcase_url)}>
               <Text style={styles.link} numberOfLines={1}>See the result: {project.showcase_url}</Text>
             </Pressable>
           )}
@@ -320,7 +321,7 @@ export default function ProjectScreen() {
                   </View>
                   <Text style={styles.postText}>{post.content}</Text>
                   {!!post.link_url && (
-                    <Pressable onPress={() => Linking.openURL(post.link_url)}>
+                    <Pressable onPress={() => openExternalLink(post.link_url)}>
                       <Text style={styles.link} numberOfLines={1}>{post.link_url}</Text>
                     </Pressable>
                   )}

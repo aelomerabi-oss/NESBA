@@ -9,6 +9,7 @@ import { addToCalendar } from '../../lib/calendar';
 import { formatPrice } from '../../lib/payments';
 import { eventLink } from '../../lib/workshops';
 import { shareLink } from '../../lib/share-link';
+import { safeLink } from '../../lib/safe-link';
 
 const ONE_HOUR = 60 * 60 * 1000;
 
@@ -69,8 +70,9 @@ export default function LiveScreen() {
     if (event.liveRoom) return router.push(`/live/${event.liveRoom.id}`);
     if (!registered.has(event.id)) return Alert.alert('Registration required', 'Register before joining this session.');
     if (!event.meeting_url) return Alert.alert('Not live yet', 'The host has not started this session.');
-    const supported = await Linking.canOpenURL(event.meeting_url);
-    if (supported) Linking.openURL(event.meeting_url);
+    const link = safeLink(event.meeting_url);
+    const supported = link && (await Linking.canOpenURL(link));
+    if (supported) Linking.openURL(link);
     else Alert.alert('Invalid meeting link', 'This event does not have a valid meeting link.');
   };
 

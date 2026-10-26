@@ -1,7 +1,8 @@
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styles, colors } from './styles';
 import StorageImage from '../StorageImage';
+import { openExternalLink } from '../../lib/safe-link';
 
 // The text, photo, video or link inside a post on Home.
 export const PostBody = ({
@@ -38,7 +39,7 @@ export const PostBody = ({
             }
 
             onPress={() =>
-              Linking.openURL(
+              openExternalLink(
                 post.link_url
               )
             }

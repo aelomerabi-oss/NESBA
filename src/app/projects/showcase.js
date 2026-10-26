@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { getShowcase } from '../../lib/projects';
 import PersonAvatar from '../../components/PersonAvatar';
+import { openExternalLink } from '../../lib/safe-link';
 
 // Finished projects, for anyone to browse.
 export default function ShowcaseScreen() {
@@ -69,7 +70,7 @@ export default function ShowcaseScreen() {
             </View>
 
             {!!item.showcase_url && (
-              <Pressable onPress={() => Linking.openURL(item.showcase_url)} style={styles.linkRow}>
+              <Pressable onPress={() => openExternalLink(item.showcase_url)} style={styles.linkRow}>
                 <Ionicons name="open-outline" size={15} color={colors.primary} />
                 <Text style={styles.link} numberOfLines={1}>See the result</Text>
               </Pressable>

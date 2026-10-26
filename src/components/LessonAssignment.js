@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../constants/theme';
+import { openExternalLink } from '../lib/safe-link';
 import {
   deleteAssignment,
   getAssignment,
@@ -37,7 +38,7 @@ function Review({ submission, onSaved }) {
       </Text>
       {!!submission.content && <Text style={styles.body}>{submission.content}</Text>}
       {!!submission.link_url && (
-        <Pressable onPress={() => Linking.openURL(submission.link_url)}>
+        <Pressable onPress={() => openExternalLink(submission.link_url)}>
           <Text style={styles.link} numberOfLines={1}>{submission.link_url}</Text>
         </Pressable>
       )}
