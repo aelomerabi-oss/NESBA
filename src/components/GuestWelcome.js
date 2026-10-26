@@ -36,9 +36,14 @@ export default function GuestWelcome() {
         </Pressable>
       </View>
 
-      <Pressable onPress={() => router.push('/faq')} accessibilityRole="link">
-        <Text style={styles.link}>How does NESBA work?</Text>
-      </Pressable>
+      <View style={styles.links}>
+        <Pressable onPress={() => router.push('/faq')} accessibilityRole="link">
+          <Text style={styles.link}>How does NESBA work?</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/waitlist')} accessibilityRole="link">
+          <Text style={styles.link}>Get launch news by email</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -55,5 +60,6 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.primary, fontWeight: '900', fontSize: 15 },
   secondary: { paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)', justifyContent: 'center' },
   secondaryText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  links: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: spacing.md, rowGap: 4 },
   link: { color: '#fff', fontSize: 13, fontWeight: '700', textDecorationLine: 'underline', textAlign: 'center', marginTop: 2 },
 });

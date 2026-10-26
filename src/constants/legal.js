@@ -8,6 +8,6 @@ export const LEGAL = {
   operator: 'NESBA (National Entrepreneurship & Small Business Academy)',
   contactEmail: 'REPLACE-WITH-CONTACT-EMAIL',
   governingCountry: 'the Netherlands',
-  lastUpdated: '25 October 2026',
+  lastUpdated: '26 October 2026',
   minimumAge: 13,
 };

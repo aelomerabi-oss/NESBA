@@ -24,7 +24,7 @@ const DETAILS = process.argv.includes('--details');
 const PAGES = [
   '/', '/courses', '/live', '/learn', '/profile', '/tutoring', '/projects', '/projects/showcase',
   '/organizations', '/search', '/faq', '/terms', '/privacy', '/login', '/signup', '/signup/student',
-  '/signup/teacher', '/signup/organization', '/reset-password', '/invite', '/invite/not-a-code', '/this-page-does-not-exist',
+  '/signup/teacher', '/signup/organization', '/reset-password', '/invite', '/invite/not-a-code', '/waitlist', '/this-page-does-not-exist',
 ];
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true });

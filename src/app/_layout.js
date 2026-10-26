@@ -10,7 +10,7 @@ import { setPageMeta } from '../lib/page-meta';
 import { claimPendingInvite } from '../lib/invites';
 
 // Screens a signed-in user may be on before finishing onboarding.
-const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms', 'event', 'invite', 'faq', '+not-found'];
+const ONBOARDING_EXEMPT = ['onboarding', 'login', 'signup', 'auth', 'reset-password', 'organization-registration', 'privacy', 'terms', 'event', 'invite', 'faq', 'waitlist', '+not-found'];
 
 /*
  * Accounts start with onboarded = false. Send them to onboarding once
@@ -61,6 +61,7 @@ const PAGE_META = {
   '/bookings': { title: 'My sessions' },
   '/certificates': { title: 'Certificates' },
   '/invite': { title: 'Invite friends' },
+  '/waitlist': { title: 'Get early access to NESBA', description: 'Join the waitlist and be the first to know when the NESBA app launches.' },
 };
 
 function PageMeta() {
@@ -209,6 +210,7 @@ export default function RootLayout() {
         <Stack.Screen name="faq" options={{ title: 'FAQ' }} />
         <Stack.Screen name="invite/index" options={{ title: 'Invite Friends' }} />
         <Stack.Screen name="invite/[code]" options={{ title: 'Join NESBA' }} />
+        <Stack.Screen name="waitlist" options={{ title: 'Early Access' }} />
         <Stack.Screen name="+not-found" options={{ title: 'Page not found' }} />
         <Stack.Screen name="recordings" options={{ title: 'Recordings' }} />
         <Stack.Screen name="projects/showcase" options={{ title: 'Project Showcase' }} />

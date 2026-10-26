@@ -111,6 +111,13 @@ await check('Home: visitors see the Join button', async () => {
   await expectText('Join NESBA free');
 });
 
+await check('Waitlist: a wrong email is refused before sending', async () => {
+  await open('/waitlist');
+  await page.getByLabel('Email').fill('not-an-email');
+  await page.getByRole('button', { name: 'Join the waitlist' }).click();
+  await expectText('Enter a valid email address.');
+});
+
 await check('No page errors during the tests', async () => {
   if (pageErrors.length) throw new Error(pageErrors.join(' | '));
 });
