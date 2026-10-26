@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, Pressable } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { colors, radius, spacing, typography } from '../constants/theme';
+import { colors, radius, shadow, spacing, typography } from '../constants/theme';
+import { PressableScale } from './motion';
 import PremiumBadge from './PremiumBadge';
 import { formatPrice } from '../lib/payments';
 
@@ -11,7 +12,7 @@ export default function CourseCard({ course, stats, fill = false }) {
   return (
     <Link href={`/course/${course.id}`} asChild>
       {/* Link copies the style onto a web element, which needs one flat object. */}
-      <Pressable style={StyleSheet.flatten([styles.card, fill && styles.fill])}>
+      <PressableScale containerStyle={StyleSheet.flatten([styles.outer, fill && styles.fill])} style={styles.card}>
         <Image accessibilityLabel={course.title || "Course image"} source={{ uri: course.thumbnail }} style={styles.thumb} />
         {course.isPremium && (
           <View style={styles.badgeWrap}>
@@ -46,7 +47,7 @@ export default function CourseCard({ course, stats, fill = false }) {
             </View>
           )}
         </View>
-      </Pressable>
+      </PressableScale>
     </Link>
   );
 }
@@ -54,18 +55,22 @@ export default function CourseCard({ course, stats, fill = false }) {
 const styles = StyleSheet.create({
   fill: { width: '100%' },
 
-  card: {
+  outer: {
     width: 170,
+    marginRight: spacing.md,
+  },
+  card: {
+    width: '100%',
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     overflow: 'hidden',
-    marginRight: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadow.card,
   },
   thumb: {
     width: '100%',
-    height: 100,
+    height: 104,
     backgroundColor: colors.surfaceAlt,
   },
   badgeWrap: {

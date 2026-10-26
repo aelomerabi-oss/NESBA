@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors as theme } from '../../constants/theme';
+import { colors as theme, shadow } from '../../constants/theme';
 
 // Home follows the app-wide light/dark palette.
 export const colors = {
@@ -424,6 +424,8 @@ export const styles = StyleSheet.create({
 
   courseList: {
     paddingHorizontal: 14,
+    paddingTop: 4,
+    paddingBottom: 24,
     gap: 12,
   },
 
@@ -434,6 +436,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadow.card,
   },
 
   courseImageContainer: {

@@ -63,6 +63,7 @@ import GuestWelcome from '../../components/GuestWelcome';
 import { colors, styles } from '../../components/home/styles';
 import { PostBody } from '../../components/home/PostBody';
 import StorageImage from '../../components/StorageImage';
+import { PressableScale } from '../../components/motion';
 import {
   MAX_UPLOAD_BYTES,
   formatBytes,
@@ -7213,7 +7214,7 @@ export default function HomeScreen() {
             {trendingCourses.map(
               course => (
 
-                <Pressable
+                <PressableScale
                   key={
                     `trending-course-${course.id}`
                   }
@@ -7367,7 +7368,7 @@ export default function HomeScreen() {
 
                   </View>
 
-                </Pressable>
+                </PressableScale>
 
               )
             )}

@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, radius, spacing, typography } from '../constants/theme';
+import { colors, radius, shadow, spacing, typography } from '../constants/theme';
 import { usePageMeta } from '../lib/page-meta';
 import { WAITLIST_INTERESTS, getWaitlistCount, joinWaitlist } from '../lib/waitlist';
 import { shareLink } from '../lib/share-link';
 import { SITE_URL } from '../lib/payments';
+import Animated, { ZoomIn } from 'react-native-reanimated';
+import { FadeInUp, PressableScale } from '../components/motion';
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -54,7 +56,7 @@ export default function WaitlistScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.hero}>
+      <FadeInUp style={styles.hero}>
         <View style={styles.badge}>
           <Ionicons name="rocket-outline" size={14} color={colors.primary} />
           <Text style={styles.badgeText}>Launching soon</Text>
@@ -69,28 +71,30 @@ export default function WaitlistScreen() {
             {count === 1 ? '1 person is' : `${count.toLocaleString()} people are`} already on the list
           </Text>
         )}
-      </View>
+      </FadeInUp>
 
       {done ? (
-        <View style={styles.card}>
-          <Ionicons name="checkmark-circle" size={48} color={colors.success || colors.primary} style={styles.center} />
+        <FadeInUp style={styles.card}>
+          <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.center}>
+            <Ionicons name="checkmark-circle" size={56} color={colors.success} />
+          </Animated.View>
           <Text style={styles.doneTitle}>You are on the list</Text>
           <Text style={styles.doneText}>
             We will email you when NESBA launches. Know someone who is starting a business? Send them the link.
           </Text>
-          <Pressable
+          <PressableScale
             style={styles.button}
             onPress={() => shareLink({ url: `${SITE_URL}/waitlist?ref=friend`, title: 'NESBA is launching soon', message: 'I joined the NESBA waitlist. Courses and mentoring for entrepreneurs:' })}
             accessibilityRole="button"
           >
             <Text style={styles.buttonText}>Share with a friend</Text>
-          </Pressable>
+          </PressableScale>
           <Pressable onPress={() => router.push('/')} accessibilityRole="link">
             <Text style={styles.link}>Look around the platform</Text>
           </Pressable>
-        </View>
+        </FadeInUp>
       ) : (
-        <View style={styles.card}>
+        <FadeInUp delay={120} style={styles.card}>
           <Text style={styles.label}>I want to</Text>
           <View style={styles.choices} role="radiogroup" aria-label="I want to">
             {WAITLIST_INTERESTS.map((option) => {
@@ -142,15 +146,15 @@ export default function WaitlistScreen() {
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
-          <Pressable style={[styles.button, saving && styles.disabled]} onPress={submit} disabled={saving} accessibilityRole="button">
+          <PressableScale style={[styles.button, saving && styles.disabled]} onPress={submit} disabled={saving} accessibilityRole="button">
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Join the waitlist</Text>}
-          </Pressable>
+          </PressableScale>
 
           <Text style={styles.note}>
             We send launch news and the NESBA newsletter. One click to unsubscribe. See our{' '}
             <Text style={styles.inlineLink} onPress={() => router.push('/privacy')}>privacy policy</Text>.
           </Text>
-        </View>
+        </FadeInUp>
       )}
     </ScrollView>
   );
@@ -163,10 +167,10 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
   badgeText: { color: colors.primary, fontWeight: '800', fontSize: 12 },
-  title: { ...typography.h1, fontSize: 28, textAlign: 'center' },
+  title: { ...typography.h1, fontSize: 32, letterSpacing: -0.8, textAlign: 'center' },
   subtitle: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
   count: { ...typography.caption, fontWeight: '700', color: colors.primary },
-  card: { marginTop: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md },
+  card: { marginTop: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, ...shadow.raised },
   label: { ...typography.caption, fontWeight: '800', marginTop: spacing.xs },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   choice: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
@@ -175,7 +179,7 @@ const styles = StyleSheet.create({
   choiceTextActive: { color: '#fff' },
   input: { ...typography.body, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 11, color: colors.text, backgroundColor: colors.background },
   error: { color: colors.error || '#d33', fontWeight: '700' },
-  button: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center', marginTop: spacing.sm },
+  button: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center', marginTop: spacing.sm, ...shadow.glow },
   disabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontWeight: '800', fontSize: 16 },
   note: { ...typography.caption, textAlign: 'center' },

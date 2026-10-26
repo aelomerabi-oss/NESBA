@@ -5,6 +5,7 @@ import { colors, spacing, typography, radius } from '../../constants/theme';
 import { getCourses, getCategories, getCourseStats } from '../../lib/courses';
 import CourseCard from '../../components/CourseCard';
 import { sideMenuWidth } from '../../components/SideNav';
+import { FadeInUp } from '../../components/motion';
 
 // CourseCard is 170 wide; as many columns as fit, at least two.
 const CARD_SPACE = 170 + spacing.md;
@@ -203,7 +204,12 @@ export default function CoursesScreen() {
             data={trending}
             keyExtractor={(item) => `trending-${item.id}`}
             showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => <CourseCard course={item} stats={stats.get(item.id)} />}
+            contentContainerStyle={styles.trendingList}
+            renderItem={({ item, index }) => (
+              <FadeInUp index={index}>
+                <CourseCard course={item} stats={stats.get(item.id)} />
+              </FadeInUp>
+            )}
           />
         </View>
       )}
@@ -230,10 +236,10 @@ export default function CoursesScreen() {
           </Text>
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        renderItem={({ item }) => (
-          <View style={{ flex: 1 / columns, marginBottom: spacing.md }}>
+        renderItem={({ item, index }) => (
+          <FadeInUp index={index} style={{ flex: 1 / columns, marginBottom: spacing.md }}>
             <CourseCard course={item} stats={stats.get(item.id)} fill />
-          </View>
+          </FadeInUp>
         )}
       />
     </View>
@@ -243,6 +249,8 @@ export default function CoursesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.md },
   center: { justifyContent: 'center', alignItems: 'center' },
+  // Room for the card shadows inside the horizontal scroll.
+  trendingList: { paddingTop: spacing.xs, paddingBottom: spacing.lg, paddingLeft: 2 },
   header: { ...typography.h1, fontSize: 22, paddingTop: spacing.lg, paddingBottom: spacing.sm },
   tabs: {
     flexDirection: 'row',

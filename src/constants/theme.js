@@ -62,8 +62,20 @@ export const radius = {
 };
 
 export const typography = {
-  h1: { fontSize: 28, fontWeight: '700', color: colors.text },
-  h2: { fontSize: 20, fontWeight: '700', color: colors.text },
+  h1: { fontSize: 28, fontWeight: '700', color: colors.text, letterSpacing: -0.5 },
+  h2: { fontSize: 20, fontWeight: '700', color: colors.text, letterSpacing: -0.3 },
   body: { fontSize: 15, fontWeight: '400', color: colors.text },
   caption: { fontSize: 13, fontWeight: '400', color: colors.textMuted },
+};
+
+// Soft, layered shadows (boxShadow works on iOS, Android and web).
+export const shadow = {
+  card: { boxShadow: isDarkTheme ? '0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35)' : '0 1px 2px rgba(16,24,40,0.04), 0 8px 24px rgba(16,24,40,0.08)' },
+  raised: { boxShadow: isDarkTheme ? '0 2px 4px rgba(0,0,0,0.35), 0 16px 40px rgba(0,0,0,0.45)' : '0 2px 4px rgba(16,24,40,0.06), 0 16px 40px rgba(16,24,40,0.12)' },
+  glow: { boxShadow: '0 12px 32px rgba(95,79,220,0.35)' },
+};
+
+// Brand gradient for hero areas, from deep to light purple.
+export const gradients = {
+  brand: isDarkTheme ? ['#4B3FC4', '#5F4FDC', '#7558E8'] : ['#4F3FD0', '#5F4FDC', '#7558E8'],
 };
