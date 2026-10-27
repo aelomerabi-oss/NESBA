@@ -37,14 +37,15 @@ export default function CoursesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
+  // fresh: pull-to-refresh skips the short catalog cache.
+  const load = useCallback(async ({ fresh = false } = {}) => {
     try {
       setError(null);
       const [courseData, categoryData, statsData] = await Promise.all([
-        getCourses(),
-        getCategories(),
+        getCourses({ fresh }),
+        getCategories({ fresh }),
         // Stats only enrich the screen; courses still show if this fails.
-        getCourseStats().catch((e) => {
+        getCourseStats({ fresh }).catch((e) => {
           console.error('Course stats error:', e);
           return new Map();
         }),
@@ -66,7 +67,7 @@ export default function CoursesScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    load();
+    load({ fresh: true });
   };
 
   const visibleCourses = useMemo(

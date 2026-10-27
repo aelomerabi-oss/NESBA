@@ -1,4 +1,5 @@
 import { Linking, Platform } from 'react-native';
+import { clearCache } from './cache';
 import { supabase } from './supabase';
 
 // Public website. Phones send buyers here, because purchases happen on the
@@ -149,6 +150,7 @@ export async function setCoursePrice(courseId, priceCents) {
     .eq('id', courseId);
 
   if (error) throw new Error(error.message);
+  clearCache('catalog:');
 }
 
 export async function getMySales(userId) {

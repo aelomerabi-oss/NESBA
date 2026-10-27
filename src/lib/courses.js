@@ -1,10 +1,20 @@
+import { cached } from './cache';
 import { supabase } from './supabase';
 
-export async function getCourses() {
+// The catalog looks the same to everyone, so it is kept for a minute (see cache.js).
+const CATALOG_TTL = 60 * 1000;
+
+export function getCourses({ fresh = false } = {}) {
+  return cached('catalog:courses', CATALOG_TTL, loadCourses, { fresh });
+}
+
+async function loadCourses() {
   const { data, error } = await supabase
     .from('courses')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    // Enough for the catalog screen; search covers the rest.
+    .limit(300);
 
   if (error) {
     throw error;
@@ -136,7 +146,11 @@ export async function getCourseById(id) {
 }
 
 
-export async function getCategories() {
+export function getCategories({ fresh = false } = {}) {
+  return cached('catalog:categories', 10 * CATALOG_TTL, loadCategories, { fresh });
+}
+
+async function loadCategories() {
   const { data, error } = await supabase
     .from('categories')
     .select('id,name')
@@ -154,7 +168,11 @@ export async function getCategories() {
  * ordered by trending score. Returns a Map keyed by course id; Map
  * iteration order is the trending order.
  */
-export async function getCourseStats({ limit = 200, categoryId = null } = {}) {
+export function getCourseStats({ limit = 200, categoryId = null, fresh = false } = {}) {
+  return cached(`catalog:stats:${limit}:${categoryId}`, CATALOG_TTL, () => loadCourseStats(limit, categoryId), { fresh });
+}
+
+async function loadCourseStats(limit, categoryId) {
   const { data, error } = await supabase.rpc('get_course_discovery_stats', {
     p_limit: limit,
     p_category_id: categoryId,

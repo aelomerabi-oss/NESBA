@@ -21,6 +21,7 @@ import {
 } from '../../../constants/theme';
 
 import { useAuth } from '../../../context/AuthContext';
+import { clearCache } from '../../../lib/cache';
 
 import {
   createCourse,
@@ -687,6 +688,9 @@ export default function CreatorCourseBuilder() {
         if (error) {
           throw error;
         }
+
+        // Show the new course in the catalog straight away.
+        clearCache('catalog:');
       }
 
       Alert.alert(

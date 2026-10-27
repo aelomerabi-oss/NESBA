@@ -1217,13 +1217,16 @@ export async function getStoryGroups(
       'expires_at',
       now
     )
+    // Newest 300 only, so the bar stays fast with many users;
+    // reversed below back to oldest first.
     .order(
       'created_at',
       {
         ascending:
-          true,
+          false,
       }
-    );
+    )
+    .limit(300);
 
   if (error) {
     console.error(
@@ -1235,7 +1238,7 @@ export async function getStoryGroups(
   }
 
   const rows =
-    safeArray(stories);
+    safeArray(stories).reverse();
 
   if (!rows.length) {
     return [];
@@ -2742,12 +2745,14 @@ export async function getDirectMessages(
     .or(
       `and(sender_id.eq.${me},recipient_id.eq.${other}),and(sender_id.eq.${other},recipient_id.eq.${me})`
     )
+    // The latest 300 messages; reversed below so the oldest is first.
     .order(
       'created_at',
       {
-        ascending: true,
+        ascending: false,
       }
-    );
+    )
+    .limit(300);
 
   if (error) {
     console.error(
@@ -2761,7 +2766,7 @@ export async function getDirectMessages(
     );
   }
 
-  return safeArray(data);
+  return safeArray(data).reverse();
 }
 
 

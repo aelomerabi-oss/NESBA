@@ -1363,7 +1363,9 @@ export default function HomeScreen() {
                   ascending:
                     false,
                 }
-              );
+              )
+              // Newest stories only, so the bar stays fast with many users.
+              .limit(150);
 
           if (error) {
             throw error;
